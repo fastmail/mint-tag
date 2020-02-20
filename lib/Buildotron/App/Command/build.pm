@@ -1,8 +1,8 @@
-#!/usr/bin/perl
-
-use 5.014;
+use v5.20;
 use warnings;
-use strict;
+package Buildotron::App::Command::build;
+
+use Buildotron::App -command;
 
 use Getopt::Long::Descriptive;
 use IPC::System::Simple qw(runx);
@@ -11,16 +11,8 @@ use LWP::UserAgent;
 use JSON qw(decode_json);
 use Data::Dumper::Concise;
 
+# XXX All of this stuff should go away into config
 my $REPO_DIR = '/Users/michael/code/fm/cyrus-imapd';
-
-my ($opt, $desc) = describe_options(
-  '%c %o',
-  [ 'target=s',   'branch name we are building', { required => 1 } ],
-  [ 'include=s@', 'include MRs with these labels', { required => 1 } ],
-  [ 'origin=s',   'the remote from which to fetch', { default => 'fastmail' } ],
-  [ 'base=s',     'branch to use as the base', { default => 'master' } ],
-);
-
 my $api_token = $ENV{GITHUB_API_TOKEN};
 unless ($api_token) {
   die "E: no GITHUB_API_TOKEN! Configure one in Github Developer Settings\n";
@@ -29,32 +21,46 @@ unless ($api_token) {
 my $github_ua = LWP::UserAgent->new;
 $github_ua->default_header(Authorization => "token $api_token");
 
-my $project_id = 2;
-my $target = $opt->target;
 
-run();
+sub usage_desc { "%c build %o" }
 
-exit 0;
+sub opt_spec {
+  return (
+    [ 'target=s',   'branch name we are building', { required => 1 } ],
+    [ 'include=s@', 'include MRs with these labels', { required => 1 } ],
+    [ 'origin=s',   'the remote from which to fetch', { default => 'fastmail' } ],
+    [ 'base=s',     'branch to use as the base', { default => 'master' } ],
+  );
+}
 
-sub run {
+sub validate_args {
+  my ($self, $opt, $args) = @_;
+}
+
+sub execute {
+  my ($self, $opt, $args) = @_;
+
   my @labels = @{ $opt->include // [] };
   die "no --include given\n" unless @labels;
 
-  prep();
+  $self->prep($opt);
 
-  my @mrs = get_mrs(@labels);
+  my @mrs = $self->get_mrs(@labels);
 
   unless (@mrs) {
     say "W: no branches labeled @labels";
     return;
   }
 
-  do_merge(\@mrs);
+  $self->do_merge($opt, \@mrs);
   return;
 }
 
 sub prep {
+  my ($self, $opt) = @_;
   chdir $REPO_DIR;
+
+  my $target = $opt->target;
 
   say "I: creating branch: $target";
   runx('git', 'reset', '--hard');
@@ -64,7 +70,9 @@ sub prep {
 }
 
 sub get_mrs {
-  my @labels = @_;
+  my ($self, @labels) = @_;
+
+  my $project_id = 2;
 
   my $labels = join(",", @labels);
 
@@ -98,7 +106,9 @@ sub get_mrs {
 }
 
 sub do_merge {
-  my @mrs = @_;
+  my ($self, $opt, $mrs) = @_;
+
+  my @mrs = @$mrs;
 
   say "I: fetching all the MRs";
   # We could use "--refmap=+refs/merge-requests/*/head:refs/remotes/origin/mr/*"
@@ -158,3 +168,4 @@ sub gitlab_get {
   return $content;
 }
 
+1;

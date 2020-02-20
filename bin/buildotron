@@ -1,0 +1,6 @@
+#!/usr/bin/env perl
+use v5.20;
+use lib 'lib';
+use Buildotron::App;
+
+Buildotron::App->run;
