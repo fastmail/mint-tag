@@ -1,0 +1,17 @@
+[meta]
+remote_order = [ "upstream", "fastmail" ]     # meh
+
+[local]
+path = "/some/local/path"
+target_branch = "deploy"
+upstream_base = "upstream/master"
+
+[remote.upstream]
+interface_class = "Buildotron::Remote::Github"
+url = "https://github.com/cyrusimap/cyrus-imapd"
+labels = [ "foo", "bar" ]
+
+[remote.fastmail]
+interface_class = "Buildotron::Remote::GitLab"
+url = "https://gitlab.fm/fastmail/cyrus-imapd"
+labels = [ "foo", "bar" ]

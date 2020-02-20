@@ -25,10 +25,43 @@ sub from_file {
   return $class->new({ cfg => $config });
 }
 
+# Surely I could do this in some other way...
+sub _assert_exists {
+  my ($class, $cfg, $path) = @_;
+
+  my @parts = split /[.]/, $path;
+  my @seen;
+
+  my $cur = $cfg;
+
+  while (@parts) {
+    my $k = shift @parts;
+    push @seen, $k;
+
+    $cur = $cur->{$k};
+
+    unless ($cur) {
+      my $full = join q{.}, @seen;
+      die "Missing config item $full!\n" unless $cur;
+    }
+  }
+
+  return;
+}
+
 sub _validate_config {
   my ($class, $cfg) = @_;
 
-  # TODO
+  $class->_assert_exists($cfg, 'local.path');
+  $class->_assert_exists($cfg, 'local.target_branch');
+  $class->_assert_exists($cfg, 'local.upstream_base');
+
+  my $remotes = $cfg->{remote} // {};
+
+  for my $remote (keys %$remotes) {
+    $class->_assert_exists($cfg, "remote.$remote.url");
+    $class->_assert_exists($cfg, "remote.$remote.interface_class");
+  }
 }
 
 has local_repo_dir => (
