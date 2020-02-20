@@ -45,6 +45,10 @@ sub execute {
 
   $self->prep($opt);
 
+  for my $remote ($self->config->remote_names) {
+    $self->process_remote_mrs($remote);
+  }
+
   warn "still need an implementation!";
   return;
 
@@ -70,6 +74,12 @@ sub prep {
   # $self->run_git('clean', '-fdx');
   $self->run_git('checkout', '-B', $target, $self->config->upstream_base);
   $self->run_git('submodule', 'update');
+}
+
+sub process_remote_mrs {
+  my ($self, $remote_name) = @_;
+
+  my $remote = $self->config->remote_interface_for($remote_name);
 }
 
 sub get_mrs {
