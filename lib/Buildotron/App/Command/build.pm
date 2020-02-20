@@ -12,7 +12,6 @@ use JSON qw(decode_json);
 use Data::Dumper::Concise;
 
 # XXX All of this stuff should go away into config
-my $REPO_DIR = '/Users/michael/code/fm/cyrus-imapd';
 my $api_token = $ENV{GITHUB_API_TOKEN};
 unless ($api_token) {
   die "E: no GITHUB_API_TOKEN! Configure one in Github Developer Settings\n";
@@ -21,29 +20,33 @@ unless ($api_token) {
 my $github_ua = LWP::UserAgent->new;
 $github_ua->default_header(Authorization => "token $api_token");
 
-
 sub usage_desc { "%c build %o" }
 
 sub opt_spec {
   return (
-    [ 'target=s',   'branch name we are building', { required => 1 } ],
-    [ 'include=s@', 'include MRs with these labels', { required => 1 } ],
-    [ 'origin=s',   'the remote from which to fetch', { default => 'fastmail' } ],
-    [ 'base=s',     'branch to use as the base', { default => 'master' } ],
+    [ 'config|c=s', 'config file to use', { required => 1 } ],
+    [ 'target=s',   'branch name we are building'  ],
+    [ 'include=s@', 'include MRs with these labels'  ],
+    [ 'origin=s',   'the remote from which to fetch'  ],
+    [ 'base=s',     'branch to use as the base' ],
   );
 }
 
 sub validate_args {
   my ($self, $opt, $args) = @_;
+  $self->app->build_config($opt->config);
 }
 
 sub execute {
   my ($self, $opt, $args) = @_;
 
   my @labels = @{ $opt->include // [] };
-  die "no --include given\n" unless @labels;
+  # die "no --include given\n" unless @labels;
 
   $self->prep($opt);
+
+  warn "still need an implementation!";
+  return;
 
   my @mrs = $self->get_mrs(@labels);
 
@@ -58,15 +61,15 @@ sub execute {
 
 sub prep {
   my ($self, $opt) = @_;
-  chdir $REPO_DIR;
+  chdir $self->config->local_repo_dir;
 
-  my $target = $opt->target;
+  my $target = $self->config->target_branch_name;
 
   say "I: creating branch: $target";
-  runx('git', 'reset', '--hard');
-  # runx('git', 'clean', '-fdx');
-  runx('git', 'checkout', '-B', $target, join(q{/}, $opt->origin, $opt->base));
-  runx("git", "submodule", "update");
+  $self->run_git('reset', '--hard');
+  # $self->run_git('clean', '-fdx');
+  $self->run_git('checkout', '-B', $target, $self->config->upstream_base);
+  $self->run_git('submodule', 'update');
 }
 
 sub get_mrs {
