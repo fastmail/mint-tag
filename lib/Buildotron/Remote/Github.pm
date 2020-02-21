@@ -10,6 +10,8 @@ use LWP::UserAgent;
 use Types::Standard qw(Str);
 use URI;
 
+use Buildotron::MergeRequest;
+
 # owner/reponame
 has repo => (
   is => 'ro',
@@ -72,13 +74,13 @@ sub get_mrs ($self) {
     my $pr = $self->http_get($url);
     my $head = $pr->{head};
 
-    # maybe this should be an object instead.
-    push @prs, {
-      number  => $pr->{number},
-      title   => $pr->{title},
-      refname => $head->{ref},
-      git_url => $head->{repo}{git_url},
-    };
+    push @prs, Buildotron::MergeRequest->new({
+      remote     => $self,
+      number     => $pr->{number},
+      title      => $pr->{title},
+      fetch_spec => $head->{repo}{git_url},
+      refname    => $head->{ref},
+    });
   }
 
   return \@prs;
