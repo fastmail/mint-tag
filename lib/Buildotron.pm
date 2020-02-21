@@ -111,6 +111,8 @@ sub _octopus_merge ($self, $mrs) {
 }
 
 sub _diagnostic_merge ($self, $mrs) {
+  local $Logger = $Logger->proxy({ proxy_prefix => 'diagnostic merge: ' });
+
   $self->prepare_local_directory;
 
   for my $mr (@$mrs) {
@@ -123,7 +125,13 @@ sub _diagnostic_merge ($self, $mrs) {
       my $err = $_;
       chomp $err;
 
-      $Logger->log([ "Got conflict in %s: %s", $mr->ident, $err ]);
+      # These errors are almost always useless, like 'git returned exit value 1'
+      $Logger->log_debug("git error: $err");
+
+      $Logger->log([
+        "encountered error while merging %s; will attempt to find conflict",
+        $mr->ident
+      ]);
       $self->_find_conflict($mr, $mrs);
     };
   }
@@ -162,6 +170,8 @@ sub _find_conflict ($self, $known_bad, $all_mrs) {
     next if $mr->ident eq $known_bad->ident;
 
     try {
+      $Logger->log([ "merging %s to check for conflict", $mr->ident ]);
+
       # XXX: Oh boy. Passing a single command into this instead of a list is
       # evil, but all the people I'd normally ask about less evil ways of
       # doing this are asleep or not working.
@@ -174,10 +184,11 @@ sub _find_conflict ($self, $known_bad, $all_mrs) {
       my $err = $_;
       chomp $err;
 
-      $Logger->log_fatal([ "%s conflicts with %s: %s",
+      $Logger->log_debug("git error: $err");
+
+      $Logger->log_fatal([ "fatal conflict between %s and %s; giving up",
         $mr->ident,
         $known_bad->ident,
-        $err,
       ]);
     };
   }
