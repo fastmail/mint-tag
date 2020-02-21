@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 use v5.20;
 use lib 'lib';
-use Buildotron::App;
+use Buildotron;
 
 use Buildotron::Logger '$Logger' => { init => {
   ident     => 'buildotron',
@@ -9,4 +9,14 @@ use Buildotron::Logger '$Logger' => { init => {
   to_stdout => 1,
 } };
 
-Buildotron::App->run;
+use Getopt::Long::Descriptive;
+
+my ($opt, $usage) = describe_options(
+  '%c %o',
+  [ 'config|c=s', 'config file to use', { required => 1 } ],
+  [ 'help|h',     'show help and exit', { shortcircuit => 1 } ],
+);
+
+print($usage->text), exit if $opt->help;
+
+Buildotron->from_config_file($opt->config)->build();
