@@ -9,6 +9,8 @@ use Buildotron::Logger '$Logger';
 use Data::Dumper::Concise;
 use Capture::Tiny qw(capture_merged);
 use IPC::System::Simple qw(runx);
+use Path::Tiny ();
+use Try::Tiny;
 
 has config => (
   is => 'ro',
@@ -62,16 +64,45 @@ sub prepare_local_directory ($self) {
 sub fetch_and_merge_mrs_from ($self, $remote_name) {
   my $remote = $self->config->remote_named($remote_name);
 
+  # get 'em
   $Logger->log("fetching MRs from $remote_name");
 
   my @mrs = $remote->get_mrs;
-
   for my $mr (@mrs) {
     $Logger->log([ "will merge: %s",  $mr->oneline_desc ]);
+    $self->run_git('fetch', $mr->as_fetch_args);
   }
+
+  # merge 'em
+  try {
+    $self->_octopus_merge(\@mrs);
+  } catch {
+    my $err = $_;
+    die "octopus merge failed: $err";
+  };
 }
 
 sub finalize ($self) {
+}
+
+sub _octopus_merge ($self, $mrs) {
+  my @shas = map {; $_->sha } @$mrs;
+
+  # Write our commit message into a file. This is potentially quite long, and
+  # we don't really want it to show up in the debug logs for the commands.
+  my $n = @$mrs;
+  my $msg = sprintf("Merge %d tagged MR%s\n\n", $n, $n > 1 ? 's' : '');
+  $msg .= $_->oneline_desc . "\n" for @$mrs;
+
+  my $path = Path::Tiny->tempfile();
+  $path->spew_utf8($msg);
+
+  $self->run_git('merge', '--no-ff', '-F' => $path->absolute, @shas);
+
+  $Logger->log([ "merged $n MR%s into %s",
+    $n > 1 ? 's' : '',
+    $self->config->target_branch_name,
+  ]);
 }
 
 1;

@@ -67,6 +67,7 @@ sub get_mrs ($self) {
       author     => $mr->{author}->{username},
       fetch_spec => $git_urls{ $mr->{source_project_id} },
       refname    => $mr->{source_branch},
+      sha        => $mr->{sha},
     });
   }
 

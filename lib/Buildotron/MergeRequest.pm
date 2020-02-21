@@ -50,6 +50,12 @@ has refname => (
   required => 1,
 );
 
+has sha => (
+  is => 'ro',
+  isa => Str,
+  required => 1,
+);
+
 sub as_fetch_args ($self) {
   return ($self->fetch_spec, $self->refname);
 }

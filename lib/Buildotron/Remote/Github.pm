@@ -62,6 +62,7 @@ sub get_mrs ($self) {
       title      => $pr->{title},
       fetch_spec => $head->{repo}{git_url},
       refname    => $head->{ref},
+      sha        => $head->{sha},
     });
   }
 
