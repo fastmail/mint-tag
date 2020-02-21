@@ -17,9 +17,6 @@ unless ($api_token) {
   die "E: no GITHUB_API_TOKEN! Configure one in Github Developer Settings\n";
 }
 
-my $github_ua = LWP::UserAgent->new;
-$github_ua->default_header(Authorization => "token $api_token");
-
 sub usage_desc { "%c build %o" }
 
 sub opt_spec {
@@ -157,6 +154,8 @@ sub gitlab_get {
   my $path = shift;
 
   $path =~ s{^/*}{};
+
+  my $github_ua;
 
   my $res = $github_ua->get("https://gitlab.fm/api/v4/$path");
   unless ($res->{status} eq '200') {

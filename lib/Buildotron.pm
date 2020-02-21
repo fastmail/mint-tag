@@ -4,6 +4,7 @@ use Moo;
 use experimental qw(postderef signatures);
 
 use Buildotron::Config;
+use Data::Dumper::Concise;
 use IPC::System::Simple qw(runx);
 
 has config => (
@@ -52,6 +53,11 @@ sub prepare_local_directory ($self) {
 
 sub fetch_and_merge_mrs_from ($self, $remote_name) {
   my $remote = $self->config->remote_named($remote_name);
+
+  say "I: fetching MRs from $remote_name";
+
+  my @mrs = $remote->get_mrs;
+  warn Dumper @mrs;
 }
 
 sub finalize ($self) {

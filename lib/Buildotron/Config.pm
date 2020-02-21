@@ -66,15 +66,12 @@ has remotes => (
 
     for my $name (keys %$val) {
       my $cfg = $val->{$name};
-      my $class = $cfg->{interface_class}
+      my $class = delete $cfg->{interface_class}
         or die "no interface_class found for remote $name!";
 
       $remotes{$name} = $class->new({
-        name    => $name,
-        api_url => $cfg->{api_url},
-        api_key => $cfg->{api_key},
-        url     => $cfg->{url},
-        labels  => $cfg->{labels},
+        name => $name,
+        %$cfg,
       });
     }
 

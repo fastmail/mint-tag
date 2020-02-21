@@ -4,6 +4,6 @@ use Moo;
 
 with 'Buildotron::Remote';
 
-sub get_mrs;
+sub get_mrs { ... }
 
 1;
