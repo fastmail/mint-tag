@@ -43,7 +43,11 @@ sub get_mrs ($self) {
   # bunch of others to get the PRs themselves. (This sure would be easier if
   # it were JMAP!)
   my $labels = join q{,}, $self->labels->@*;
-  my $issues = $self->http_get($self->uri_for('/issues', { labels => $labels }));
+  my $issues = $self->http_get($self->uri_for('/issues', {
+    labels => $labels,
+    sort => 'created',
+    direction => 'asc',
+  }));
 
   my @pr_urls = map  {; $_->{pull_request}{url} }
                 grep {; $_->{pull_request}      }

@@ -56,6 +56,14 @@ has sha => (
   required => 1,
 );
 
+has ident => (
+  is => 'ro',
+  lazy => 1,
+  default => sub ($self) {
+    return sprintf('%s!%d', $self->remote_name, $self->number);
+  },
+);
+
 sub as_fetch_args ($self) {
   return ($self->fetch_spec, $self->refname);
 }
@@ -67,6 +75,11 @@ sub oneline_desc ($self) {
     $self->author,
     $self->title
   );
+}
+
+# Silly, but I've now typed this like 8 times, so.
+sub as_commit_message ($self) {
+  return "Merge " . $self->oneline_desc;
 }
 
 1;

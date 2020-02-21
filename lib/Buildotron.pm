@@ -8,8 +8,9 @@ use Buildotron::Logger '$Logger';
 
 use Data::Dumper::Concise;
 use Capture::Tiny qw(capture_merged);
-use IPC::System::Simple qw(runx);
+use IPC::System::Simple qw(capturex runx);
 use Path::Tiny ();
+use String::ShellQuote qw(shell_quote);
 use Try::Tiny;
 
 has config => (
@@ -27,7 +28,7 @@ sub build ($self) {
   $self->prepare_local_directory;
 
   for my $remote ($self->config->remote_names) {
-    $self->fetch_and_merge_mrs_from($remote);
+    $self->fetch_and_merge_mrs_from($remote);   # might throw
   }
 
   $self->finalize;
@@ -78,7 +79,11 @@ sub fetch_and_merge_mrs_from ($self, $remote_name) {
     $self->_octopus_merge(\@mrs);
   } catch {
     my $err = $_;
-    die "octopus merge failed: $err";
+    chomp $err;
+
+    $Logger->log("octopus merge failed with error: $err");
+    $Logger->log("will merge less octopodally for diagnostics");
+    $self->_diagnostic_merge(\@mrs);
   };
 }
 
@@ -103,6 +108,79 @@ sub _octopus_merge ($self, $mrs) {
     $n > 1 ? 's' : '',
     $self->config->target_branch_name,
   ]);
+}
+
+sub _diagnostic_merge ($self, $mrs) {
+  $self->prepare_local_directory;
+
+  for my $mr (@$mrs) {
+    $Logger->log([ "merging %s", $mr->oneline_desc ]);
+
+    try {
+      $self->run_git('merge', '--no-ff', '-m' => $mr->as_commit_message, $mr->sha);
+      $self->run_git('submodule', 'update');
+    } catch {
+      my $err = $_;
+      chomp $err;
+
+      $Logger->log([ "Got conflict in %s: %s", $mr->ident, $err ]);
+      $self->_find_conflict($mr, $mrs);
+    };
+  }
+
+  # If we get here, something very strange indeed has happened.
+
+  # If we are in this sub at all, we expect that the above will fail. If it
+  # doesn't, something very strange indeed has happened.
+  $Logger->log('diagnostic merge succeeded somehow...this should not happen!');
+}
+
+sub _find_conflict ($self, $known_bad, $all_mrs) {
+  # clean slate
+  $self->prepare_local_directory;
+
+  # First: does this conflict with the branch we're trying to deploy?
+  try {
+    $Logger->log([ "merging known-bad MR: %s", $known_bad->ident ]);
+
+    my $msg = $known_bad->as_commit_message;
+    $self->run_git('merge', '--no-ff', '-m' => $msg, $known_bad->sha);
+    $self->run_git('submodule', 'update');
+  } catch {
+    my $err = $_;
+    chomp $err;
+
+    $Logger->log_fatal([ "%s conflicts with %s (%s)",
+      $known_bad->ident,
+      $self->config->target_branch_name,
+      $err,
+    ]);
+  };
+
+  # No? What *does* it conflict with, then?
+  for my $mr (@$all_mrs) {
+    next if $mr->ident eq $known_bad->ident;
+
+    try {
+      # XXX: Oh boy. Passing a single command into this instead of a list is
+      # evil, but all the people I'd normally ask about less evil ways of
+      # doing this are asleep or not working.
+      my $sha = shell_quote($mr->sha);
+
+      # NB: this prefix nonsense is because I have diff.noprefix true in my
+      # local gitconfig, which causes this command to fail cryptically.
+      $self->run_git("format-patch --src-prefix=a/ --dst-prefix=b/ --stdout $sha | git apply --check");
+    } catch {
+      my $err = $_;
+      chomp $err;
+
+      $Logger->log_fatal([ "%s conflicts with %s: %s",
+        $mr->ident,
+        $known_bad->ident,
+        $err,
+      ]);
+    };
+  }
 }
 
 1;
