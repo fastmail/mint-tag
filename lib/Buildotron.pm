@@ -6,10 +6,12 @@ use experimental qw(postderef signatures);
 use Buildotron::Config;
 use Buildotron::Logger '$Logger';
 
-use Data::Dumper::Concise;
 use Capture::Tiny qw(capture_merged);
+use Data::Dumper::Concise;
+use DateTime;
 use IPC::System::Simple qw(capturex runx);
 use Path::Tiny ();
+use Process::Status;
 use String::ShellQuote qw(shell_quote);
 use Try::Tiny;
 
@@ -27,8 +29,10 @@ sub from_config_file ($class, $config_file) {
 sub build ($self) {
   $self->prepare_local_directory;
 
-  for my $remote ($self->config->remote_names) {
+  for my $remote_name ($self->config->remote_names) {
+    my $remote = $self->config->remote_named($remote_name);
     $self->fetch_and_merge_mrs_from($remote);   # might throw
+    $self->maybe_tag_commit($remote);
   }
 
   $self->finalize;
@@ -62,11 +66,9 @@ sub prepare_local_directory ($self) {
   $self->run_git('submodule', 'update');
 }
 
-sub fetch_and_merge_mrs_from ($self, $remote_name) {
-  my $remote = $self->config->remote_named($remote_name);
-
+sub fetch_and_merge_mrs_from ($self, $remote) {
   # get 'em
-  $Logger->log("fetching MRs from $remote_name");
+  $Logger->log([ "fetching MRs from %s", $remote->name ]);
 
   my @mrs = $remote->get_mrs;
   for my $mr (@mrs) {
@@ -87,7 +89,41 @@ sub fetch_and_merge_mrs_from ($self, $remote_name) {
   };
 }
 
+# This is *terrible*. If the remote has a tag_format, it can contain %d and
+# %s, which are substituted with a date and a serial number. Almost certainly
+# we want something else (sha?) but it's quitting time for today.
+sub maybe_tag_commit ($self, $remote) {
+  return unless $remote->has_tag_format;
+
+  my $ymd = DateTime->now(time_zone => 'UTC')->ymd('');
+  my $sha = capturex(qw(git rev-parse HEAD));
+  chomp $sha;
+
+  my $tag;
+  my $format = $remote->tag_format;
+
+  for (my $n = 1; $n < 1000; $n++) {
+    my $candidate = sprintf '%03d', $n;
+    $tag = $format;
+    $tag =~ s/%d/$ymd/;
+    $tag =~ s/%s/$candidate/;
+
+    system(qw(git show-ref -q), $tag);
+    my $ps = Process::Status->new;
+
+    if (! $ps->is_success) {
+      # If this exits zero, that means the tag exists and we need to keep going.
+      # If it exits non-zero, that means it doensn't, and we're done!
+      last;
+    }
+  }
+
+  $Logger->log("tagging $sha as $tag");
+  $self->run_git('tag', $tag);
+}
+
 sub finalize ($self) {
+  # I put this here, but I'm not sure right now that it will do anything.
 }
 
 sub _octopus_merge ($self, $mrs) {

@@ -40,6 +40,12 @@ has labels => (
   default => sub { [] },
 );
 
+has tag_format => (
+  is => 'ro',
+  isa => Str,
+  predicate => 'has_tag_format',
+);
+
 sub http_get ($self, $url) {
   my $res = $self->ua->get($url);
 
