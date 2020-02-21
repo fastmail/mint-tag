@@ -4,7 +4,10 @@ use Moo;
 use experimental qw(postderef signatures);
 
 use Buildotron::Config;
+use Buildotron::Logger '$Logger';
+
 use Data::Dumper::Concise;
+use Capture::Tiny qw(capture_merged);
 use IPC::System::Simple qw(runx);
 
 has config => (
@@ -19,8 +22,6 @@ sub from_config_file ($class, $config_file) {
 };
 
 sub build ($self) {
-  say "can we build it?\nno not yet!";
-
   $self->prepare_local_directory;
 
   for my $remote ($self->config->remote_names) {
@@ -31,10 +32,17 @@ sub build ($self) {
 }
 
 sub run_git ($self, @cmd) {
-  # Probably, eventually, a logger.
-  my $str = join(q{ }, 'git', @cmd);
-  say "I: running $str";
-  runx('git', @cmd);
+  $Logger->log_debug([ "run: %s", join(q{ }, 'git', @cmd) ]);
+
+  # I would use IPC::System::Simple's capturex here, but it does not seem to
+  # capture stderr.
+  my ($out) = capture_merged(sub { runx('git', @cmd) });
+
+  if ($Logger->get_debug) {
+    local $Logger = $Logger->proxy({ proxy_prefix => '(git): ' });
+    my @lines = split /\r?\n/, $out;
+    $Logger->log_debug($_) for @lines;
+  }
 }
 
 # Change into our directory, check out the correct branch, and make sure we
@@ -44,7 +52,7 @@ sub prepare_local_directory ($self) {
 
   my $target = $self->config->target_branch_name;
 
-  say "I: creating branch: $target";
+  $Logger->log("creating branch: $target");
   $self->run_git('reset', '--hard');
   # maybe: git clean -fdx
   $self->run_git('checkout', '-B', $target, $self->config->upstream_base);
@@ -54,12 +62,12 @@ sub prepare_local_directory ($self) {
 sub fetch_and_merge_mrs_from ($self, $remote_name) {
   my $remote = $self->config->remote_named($remote_name);
 
-  say "I: fetching MRs from $remote_name";
+  $Logger->log("fetching MRs from $remote_name");
 
   my @mrs = $remote->get_mrs;
 
   for my $mr (@mrs) {
-    say "I:   Will merge: " . $mr->oneline_desc;
+    $Logger->log([ "will merge: %s",  $mr->oneline_desc ]);
   }
 }
 
