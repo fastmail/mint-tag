@@ -49,8 +49,6 @@ sub execute {
   my @labels = @{ $opt->include // [] };
   # die "no --include given\n" unless @labels;
 
-  $self->prep($opt);
-
   for my $remote ($self->config->remote_names) {
     $self->process_remote_mrs($remote);
   }
@@ -67,19 +65,6 @@ sub execute {
 
   $self->do_merge($opt, \@mrs);
   return;
-}
-
-sub prep {
-  my ($self, $opt) = @_;
-  chdir $self->config->local_repo_dir;
-
-  my $target = $self->config->target_branch_name;
-
-  say "I: creating branch: $target";
-  $self->run_git('reset', '--hard');
-  # $self->run_git('clean', '-fdx');
-  $self->run_git('checkout', '-B', $target, $self->config->upstream_base);
-  $self->run_git('submodule', 'update');
 }
 
 sub process_remote_mrs {
