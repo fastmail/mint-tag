@@ -50,7 +50,7 @@ sub http_get ($self, $url) {
   my $res = $self->ua->get($url);
 
   unless ($res->is_success) {
-    my $class = ref $self =~ s/.*:://;
+    my $class = (ref $self) =~ s/.*:://r;
     die "Something went wrong talking to $class\n" . $res->as_string;
   }
 
