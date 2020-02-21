@@ -2,18 +2,16 @@ use v5.20;
 use warnings;
 package Buildotron::Config;
 use Moo;
-use experimental 'postderef';
+use experimental qw(signatures postderef);
 
 use TOML::Parser;
-use Types::Standard qw(HashRef Str);
+use Types::Standard qw(HashRef Str ConsumerOf);
 
 # I tried using Module::Runtime for this, but failed mysteriously. TODO: why??
 use Buildotron::Remote::Github;
 use Buildotron::Remote::GitLab;
 
-sub from_file {
-  my ($class, $file) = @_;
-
+sub from_file ($class, $file) {
   my $config = TOML::Parser->new->parse_file($file);
 
   return $class->new({
@@ -59,46 +57,44 @@ has upstream_base => (
 
 has remotes => (
   is => 'ro',
-  isa => sub {
-    my $val = shift;
-    die "must be a hashref\n" unless ref $val eq 'HASH';
+  isa => HashRef[ConsumerOf["Buildotron::Remote"]],
+  required => 1,
+  coerce => sub ($val) {
+    # Build Buildotron::Remote classes as early as possible. This is a little
+    # janky to do it in a coercion, but I think it's ok.
+    my %remotes;
 
     for my $name (keys %$val) {
-      my $remote = $val->{$name};
-      die "remote '$name' must be a hashref\n" unless ref $remote eq 'HASH';
-      die "remote '$name' is missing value for 'url'\n" unless $remote->{url};
-      die "remote '$name' is missing value for 'interface_class'\n"
-        unless $remote->{interface_class};
+      my $cfg = $val->{$name};
+      my $class = $cfg->{interface_class}
+        or die "no interface_class found for remote $name!";
+
+      $remotes{$name} = $class->new({
+        name    => $name,
+        api_url => $cfg->{api_url},
+        api_key => $cfg->{api_key},
+        url     => $cfg->{url},
+        labels  => $cfg->{labels},
+      });
     }
 
-    return;
+    return \%remotes;
   },
-  required => 1,
 );
 
 # return a list of the remotes, in some order.
-sub remote_names {
-  my $self = shift;
-
+sub remote_names ($self) {
   my $ordered = $self->meta->{remote_order};
   return @$ordered if $ordered;
 
   return sort keys $self->remotes->%*;
 }
 
-sub remote_interface_for {
-  my ($self, $remote_name) = @_;
-  my $this_cfg = $self->remotes->{$remote_name};
+sub remote_named ($self, $name) {
+  my $remote = $self->remotes->{$name};
+  return $remote if $remote;
 
-  die "No configuration for remote named $remote_name!\n"
-    unless $this_cfg;
-
-  my $class = $this_cfg->{interface_class};
-
-  return $class->new({
-    labels => $this_cfg->{labels} // [],
-    url => $this_cfg->{url},
-  });
+  die "No configuration for remote named $name!\n"
 }
 
 1;

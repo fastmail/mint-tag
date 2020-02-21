@@ -70,7 +70,6 @@ sub execute {
 sub process_remote_mrs {
   my ($self, $remote_name) = @_;
 
-  my $remote = $self->config->remote_interface_for($remote_name);
 }
 
 sub get_mrs {

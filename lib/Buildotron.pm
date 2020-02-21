@@ -51,6 +51,7 @@ sub prepare_local_directory ($self) {
 }
 
 sub fetch_and_merge_mrs_from ($self, $remote_name) {
+  my $remote = $self->config->remote_named($remote_name);
 }
 
 sub finalize ($self) {
