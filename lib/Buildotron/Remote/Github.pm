@@ -5,20 +5,12 @@ use experimental qw(postderef signatures);
 
 with 'Buildotron::Remote';
 
-use JSON::MaybeXS qw(encode_json decode_json);
 use LWP::UserAgent;
-use Types::Standard qw(Str);
 use URI;
 
 use Buildotron::MergeRequest;
 
-# owner/reponame
-has repo => (
-  is => 'ro',
-  isa => Str,
-  required => 1,
-);
-
+sub ua;
 has ua => (
   is => 'ro',
   lazy => 1,
@@ -32,17 +24,6 @@ has ua => (
     return $ua;
   },
 );
-
-sub http_get ($self, $url, $arg = {}) {
-  my $res = $self->ua->get($url);
-
-  unless ($res->is_success) {
-    die "Something went wrong talking to Github:\n" . $res->as_string;
-  }
-
-  my $data = decode_json($res->decoded_content);
-  return $data;
-}
 
 sub uri_for ($self, $part, $query = {}) {
   my $uri = URI->new(sprintf(
@@ -77,13 +58,14 @@ sub get_mrs ($self) {
     push @prs, Buildotron::MergeRequest->new({
       remote     => $self,
       number     => $pr->{number},
+      author     => $pr->{user}->{login},
       title      => $pr->{title},
       fetch_spec => $head->{repo}{git_url},
       refname    => $head->{ref},
     });
   }
 
-  return \@prs;
+  return @prs;
 }
 
 1;

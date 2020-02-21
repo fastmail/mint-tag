@@ -22,6 +22,12 @@ has number => (
   required => 1,
 );
 
+has author => (
+  is => 'ro',
+  isa => Str,
+  required => 1,
+);
+
 has title => (
   is => 'ro',
   isa => Str,
@@ -46,6 +52,15 @@ has refname => (
 
 sub as_fetch_args ($self) {
   return ($self->fetch_spec, $self->refname);
+}
+
+sub oneline_desc ($self) {
+  return sprintf("%s!%d (%s) - %s",
+    $self->remote_name,
+    $self->number,
+    $self->author,
+    $self->title
+  );
 }
 
 1;

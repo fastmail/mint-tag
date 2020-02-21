@@ -150,24 +150,4 @@ sub do_merge {
   }
 }
 
-sub gitlab_get {
-  my $path = shift;
-
-  $path =~ s{^/*}{};
-
-  my $github_ua;
-
-  my $res = $github_ua->get("https://gitlab.fm/api/v4/$path");
-  unless ($res->{status} eq '200') {
-    die "Failed to get $path: " . Dumper($res);
-  }
-
-  my $content = eval { decode_json($res->{content}); };
-  if ($@) {
-    die "Failed to decode json from gitlab $path: $@ ($res->{content})\n";
-  }
-
-  return $content;
-}
-
 1;

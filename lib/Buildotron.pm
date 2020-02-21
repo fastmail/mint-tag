@@ -57,7 +57,10 @@ sub fetch_and_merge_mrs_from ($self, $remote_name) {
   say "I: fetching MRs from $remote_name";
 
   my @mrs = $remote->get_mrs;
-  warn Dumper @mrs;
+
+  for my $mr (@mrs) {
+    say "I:   Will merge: " . $mr->oneline_desc;
+  }
 }
 
 sub finalize ($self) {
