@@ -38,71 +38,12 @@ sub execute {
 
   require Buildotron;
   my $bob = Buildotron->from_config_file($opt->config);
-
   $bob->build();
-
   return;
 
-  my @labels = @{ $opt->include // [] };
-  # die "no --include given\n" unless @labels;
-
-  for my $remote ($self->config->remote_names) {
-    $self->process_remote_mrs($remote);
-  }
-
-  warn "still need an implementation!";
-  return;
-
-  my @mrs = $self->get_mrs(@labels);
-
-  unless (@mrs) {
-    say "W: no branches labeled @labels";
-    return;
-  }
-
+  my @mrs;
   $self->do_merge($opt, \@mrs);
   return;
-}
-
-sub process_remote_mrs {
-  my ($self, $remote_name) = @_;
-
-}
-
-sub get_mrs {
-  my ($self, @labels) = @_;
-
-  my $project_id = 2;
-
-  my $labels = join(",", @labels);
-
-  my $mrs = gitlab_get("/projects/$project_id/merge_requests?state=opened&labels=$labels&per_page=50");
-
-  $mrs = [
-    sort { $a->{iid} <=> $b->{iid} } grep { $_->{target_branch} eq 'master' } @$mrs,
-  ];
-
-  my @results;
-  # If we want the username/branch string again, it's from this commented-out
-  # stuff. It can be nice sometimes (though MR number is more useful), but it
-  # slows things down with more API requests, so we're skipping it for now.
-  # my %projects;
-
-  for my $mr (@$mrs) {
-    # my $spid = $mr->{source_project_id};
-    # my $sb = $mr->{source_branch};
-
-    # my $project = $projects{$spid} ||= gitlab_get("/projects/$spid");
-    push @results, {
-      number => $mr->{iid},
-      sha => $mr->{sha},
-      author => $mr->{author}->{username},
-      title => $mr->{title},
-      # branch => $project->{namespace}{name} . "/" . $sb,
-    };
-  }
-
-  return @results;
 }
 
 sub do_merge {
