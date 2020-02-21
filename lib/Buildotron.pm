@@ -6,13 +6,11 @@ use experimental qw(postderef signatures);
 use Buildotron::Config;
 use Buildotron::Logger '$Logger';
 
-use Capture::Tiny qw(capture_merged);
 use Data::Dumper::Concise;
 use DateTime;
-use IPC::System::Simple qw(capturex runx);
+use IPC::Run3 qw(run3);
 use Path::Tiny ();
 use Process::Status;
-use String::ShellQuote qw(shell_quote);
 use Try::Tiny;
 
 has config => (
@@ -39,17 +37,28 @@ sub build ($self) {
 }
 
 sub run_git ($self, @cmd) {
+  # A little silly, but hey.
+  my $arg = {};
+  $arg = pop @cmd if ref $cmd[-1] eq 'HASH';
+
   $Logger->log_debug([ "run: %s", join(q{ }, 'git', @cmd) ]);
 
-  # I would use IPC::System::Simple's capturex here, but it does not seem to
-  # capture stderr.
-  my ($out) = capture_merged(sub { runx('git', @cmd) });
+  my $in = $arg->{stdin} // undef;
+  my $out;
+
+  unshift @cmd, 'git';
+  run3(\@cmd, $in, \$out, \$out);
+  Process::Status->assert_ok(join(q{ }, @cmd[0..1]));
+
+  chomp $out;
 
   if ($Logger->get_debug) {
     local $Logger = $Logger->proxy({ proxy_prefix => '(git): ' });
     my @lines = split /\r?\n/, $out;
     $Logger->log_debug($_) for @lines;
   }
+
+  return $out;
 }
 
 # Change into our directory, check out the correct branch, and make sure we
@@ -96,8 +105,7 @@ sub maybe_tag_commit ($self, $remote) {
   return unless $remote->has_tag_format;
 
   my $ymd = DateTime->now(time_zone => 'UTC')->ymd('');
-  my $sha = capturex(qw(git rev-parse HEAD));
-  chomp $sha;
+  my $sha = $self->run_git('rev-parse', 'HEAD');
 
   my $tag;
   my $format = $remote->tag_format;
@@ -108,14 +116,16 @@ sub maybe_tag_commit ($self, $remote) {
     $tag =~ s/%d/$ymd/;
     $tag =~ s/%s/$candidate/;
 
-    system(qw(git show-ref -q), $tag);
-    my $ps = Process::Status->new;
+    my $tag_ok = try {
+      $self->run_git('show-ref', '-q', $tag);
+      return 0;
+    } catch {
+      # If show-ref exits zero, that means the tag already, exists and we need
+      # to keep going.  If it exits non-zero, we're done!
+      return 1;
+    };
 
-    if (! $ps->is_success) {
-      # If this exits zero, that means the tag exists and we need to keep going.
-      # If it exits non-zero, that means it doensn't, and we're done!
-      last;
-    }
+    last if $tag_ok;
   }
 
   $Logger->log("tagging $sha as $tag");
@@ -208,14 +218,13 @@ sub _find_conflict ($self, $known_bad, $all_mrs) {
     try {
       $Logger->log([ "merging %s to check for conflict", $mr->ident ]);
 
-      # XXX: Oh boy. Passing a single command into this instead of a list is
-      # evil, but all the people I'd normally ask about less evil ways of
-      # doing this are asleep or not working.
-      my $sha = shell_quote($mr->sha);
-
       # NB: this prefix nonsense is because I have diff.noprefix true in my
       # local gitconfig, which causes this command to fail cryptically.
-      $self->run_git("format-patch --src-prefix=a/ --dst-prefix=b/ --stdout $sha | git apply --check");
+      my $patch = $self->run_git(
+        'format-patch', '--src-prefix=a/', '--dst-prefix=b/', '--stdout', $mr->sha
+      );
+
+      $self->run_git('apply', 'check', { stdin => \$patch });
     } catch {
       my $err = $_;
       chomp $err;
