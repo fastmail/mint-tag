@@ -34,11 +34,17 @@ sub opt_spec {
 
 sub validate_args {
   my ($self, $opt, $args) = @_;
-  $self->app->build_config($opt->config);
 }
 
 sub execute {
   my ($self, $opt, $args) = @_;
+
+  require Buildotron;
+  my $bob = Buildotron->from_config_file($opt->config);
+
+  $bob->build();
+
+  return;
 
   my @labels = @{ $opt->include // [] };
   # die "no --include given\n" unless @labels;
