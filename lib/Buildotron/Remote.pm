@@ -25,6 +25,13 @@ has api_key => (
   is => 'ro',
   isa => Str,
   required => 1,
+  coerce => sub ($val) {
+    if ($val =~ s/^ENV://) {
+      return $ENV{$val};
+    }
+
+    return $val;
+  },
 );
 
 # owner/name

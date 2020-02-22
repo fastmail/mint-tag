@@ -29,7 +29,7 @@ tag_format = "cyrus-%d.%s"
 [remote.fastmail]
 interface_class = "Buildotron::Remote::GitLab"
 api_url = "https://gitlab.fm/api/v4"
-api_key = "your-other-apikey"
+api_key = "ENV:GITLAB_API_KEY"
 repo = "fastmail/cyrus-imapd"
 labels = [ "include-in-deploy" ]
 tag_format = "cyrus-%d.%s-fastmail"
@@ -42,9 +42,10 @@ where we'll reset before starting work.
 
 You can have one or more remotes. Each remote must have an `interface_class`,
 which tells the builder how to fetch the MRs. You also need to provide
-instructions as to how to fetch the things it needs. At build time, we go and
-fetch all the merge/pull requests labeled with the labels given, then merge
-them all into a branch.
+instructions as to how to fetch the things it needs. You can provide your
+`api_key` directly, but if it begins with the magic string `ENV:`, we'll fetch
+it from the named environment variable instead. That means you can commit the
+configs without worrying about leaking secrets.
 
 You can provide a `tag_format`, but right now that's pretty janky. `%d` is
 replaced with today's date (ymd, no-hyphens, in UTC), and `%s` with a serial
@@ -53,9 +54,10 @@ and `cyrus-20200221.002`. This should probably be improved a lot.
 (I wish you could customize `git describe` a little more, because it's
 basically what I want.)
 
-When we build, we grab _all_ the MRs for a remote and merge them at once. We
-do this once per remote. Maybe we want to do this all at once (so you wind up
-with a single merge), but for now this is ok, I think.
+At build time, we go and fetch _all_ the appropriately labeled merge/pull
+requests labels given, then merge them all at once into a branch.   We do this
+once per remote. Maybe we want to do this all at once (so you wind up with a
+single merge), but for now this is ok, I think.
 
 If the order matters, you can specify a `meta` block, with `remote_order`.
 I am not thrilled about this, but it was expedient.
