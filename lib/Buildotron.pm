@@ -73,7 +73,7 @@ sub prepare_local_directory ($self) {
   $Logger->log("creating branch: $target");
   $self->run_git('reset', '--hard');
   # maybe: git clean -fdx
-  $self->run_git('checkout', '-B', $target, $self->config->upstream_base);
+  $self->run_git('checkout', '--no-track', '-B', $target, $self->config->upstream_base);
   $self->run_git('submodule', 'update');
 }
 
