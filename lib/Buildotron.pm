@@ -48,7 +48,7 @@ sub run_git ($self, @cmd) {
 
   unshift @cmd, 'git';
   run3(\@cmd, $in, \$out, \$out);
-  Process::Status->assert_ok(join(q{ }, @cmd[0..1]));
+  my $ps = Process::Status->new;
 
   chomp $out;
 
@@ -57,6 +57,8 @@ sub run_git ($self, @cmd) {
     my @lines = split /\r?\n/, $out;
     $Logger->log_debug($_) for @lines;
   }
+
+  $ps->assert_ok(join(q{ }, @cmd[0..1]));
 
   return $out;
 }
