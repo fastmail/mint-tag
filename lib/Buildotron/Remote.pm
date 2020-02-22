@@ -4,7 +4,7 @@ use Moo::Role;
 use experimental qw(signatures postderef);
 
 use JSON::MaybeXS qw(decode_json);
-use Types::Standard qw(Str ArrayRef);
+use Types::Standard qw(Str ArrayRef Maybe);
 
 requires 'get_mrs';
 requires 'ua';
@@ -49,8 +49,7 @@ has label => (
 
 has tag_format => (
   is => 'ro',
-  isa => Str,
-  predicate => 'has_tag_format',
+  isa => Maybe[Str],
 );
 
 sub http_get ($self, $url) {

@@ -28,8 +28,9 @@ sub build ($self) {
   $self->prepare_local_directory;
 
   for my $remote ($self->config->remotes) {
-    $self->fetch_and_merge_mrs_from($remote);   # might throw
-    $self->maybe_tag_commit($remote);
+    my $mrs = $self->fetch_mrs_from($remote);
+    $self->merge_mrs($mrs);
+    $self->maybe_tag_commit($remote->tag_format);
   }
 
   $self->finalize;
@@ -76,7 +77,7 @@ sub prepare_local_directory ($self) {
   $self->run_git('submodule', 'update');
 }
 
-sub fetch_and_merge_mrs_from ($self, $remote) {
+sub fetch_mrs_from ($self, $remote) {
   # get 'em
   $Logger->log([ "fetching MRs from %s", $remote->name ]);
 
@@ -86,34 +87,36 @@ sub fetch_and_merge_mrs_from ($self, $remote) {
     $self->run_git('fetch', $mr->as_fetch_args);
   }
 
-  # merge 'em
+  return \@mrs;
+}
+
+sub merge_mrs ($self, $mrs) {
   try {
-    $self->_octopus_merge(\@mrs);
+    $self->_octopus_merge($mrs);
   } catch {
     my $err = $_;
     chomp $err;
 
     $Logger->log("octopus merge failed with error: $err");
     $Logger->log("will merge less octopodally for diagnostics");
-    $self->_diagnostic_merge(\@mrs);
+    $self->_diagnostic_merge($mrs);
   };
 }
 
 # This is *terrible*. If the remote has a tag_format, it can contain %d and
 # %s, which are substituted with a date and a serial number. Almost certainly
 # we want something else (sha?) but it's quitting time for today.
-sub maybe_tag_commit ($self, $remote) {
-  return unless $remote->has_tag_format;
+sub maybe_tag_commit ($self, $tag_format) {
+  return unless $tag_format;
 
   my $ymd = DateTime->now(time_zone => 'UTC')->ymd('');
   my $sha = $self->run_git('rev-parse', 'HEAD');
 
   my $tag;
-  my $format = $remote->tag_format;
 
   for (my $n = 1; $n < 1000; $n++) {
     my $candidate = sprintf '%03d', $n;
-    $tag = $format;
+    $tag = $tag_format;
     $tag =~ s/%d/$ymd/;
     $tag =~ s/%s/$candidate/;
 
@@ -185,8 +188,6 @@ sub _diagnostic_merge ($self, $mrs) {
       $self->_find_conflict($mr, $mrs);
     };
   }
-
-  # If we get here, something very strange indeed has happened.
 
   # If we are in this sub at all, we expect that the above will fail. If it
   # doesn't, something very strange indeed has happened.

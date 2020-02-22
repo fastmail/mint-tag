@@ -78,8 +78,9 @@ sub build ($self) {
   $self->prepare_local_directory;
 
   for my $remote ($self->config->remotes) {
-    $self->fetch_and_merge_mrs_from($remote);   # might throw
-    $self->maybe_tag_commit($remote);
+    my $mrs = $self->fetch_mrs_from($remote);
+    $self->merge_mrs($mrs);
+    $self->maybe_tag_commit($remote->tag_format);
   }
 
   $self->finalize;
@@ -89,6 +90,12 @@ sub build ($self) {
 Right now, `finalize` is a no-op, but eventually it will probably push tags
 and whatnot to some remote.
 
+If you want more control over the build process, you can just call those
+methods yourself. YOu might do this if, say, you want a human to confirm that
+those MRs are in fact the ones you want, and insert `$self->confirm_mrs($mrs)`
+between the fetch and merge steps. Or, maybe you want to merge all the MRs at
+once in a big octopus, in which case you could fetch all the MRs from every
+remote, combine them, then call `->merge_mrs(\@all_mrs)`. You do you, buddy.
 
 ## Guts
 
