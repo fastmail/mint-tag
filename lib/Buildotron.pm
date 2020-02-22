@@ -144,16 +144,19 @@ sub _octopus_merge ($self, $mrs) {
   # Write our commit message into a file. This is potentially quite long, and
   # we don't really want it to show up in the debug logs for the commands.
   my $n = @$mrs;
-  my $msg = sprintf("Merge %d tagged MR%s\n\n", $n, $n > 1 ? 's' : '');
+  my $mrs_eng = "MR" . ($n > 1 ? 's' : '');
+
+  my $msg = "Merge $n tagged $mrs_eng\n\n";
   $msg .= $_->oneline_desc . "\n" for @$mrs;
 
   my $path = Path::Tiny->tempfile();
   $path->spew_utf8($msg);
 
+  $Logger->log("octopus merging $n $mrs_eng");
+
   $self->run_git('merge', '--no-ff', '-F' => $path->absolute, @shas);
 
-  $Logger->log([ "merged $n MR%s into %s",
-    $n > 1 ? 's' : '',
+  $Logger->log([ "merged $n $mrs_eng into %s",
     $self->config->target_branch_name,
   ]);
 }
