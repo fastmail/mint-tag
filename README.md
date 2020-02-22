@@ -77,8 +77,7 @@ The build routine itself does this:
 sub build ($self) {
   $self->prepare_local_directory;
 
-  for my $remote_name ($self->config->remote_names) {
-    my $remote = $self->config->remote_named($remote_name);
+  for my $remote ($self->config->remotes) {
     $self->fetch_and_merge_mrs_from($remote);   # might throw
     $self->maybe_tag_commit($remote);
   }

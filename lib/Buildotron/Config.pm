@@ -55,10 +55,11 @@ has upstream_base => (
   required => 1,
 );
 
-has remotes => (
+has _remotes => (
   is => 'ro',
   isa => HashRef[ConsumerOf["Buildotron::Remote"]],
   required => 1,
+  init_arg => 'remotes',
   coerce => sub ($val) {
     # Build Buildotron::Remote classes as early as possible. This is a little
     # janky to do it in a coercion, but I think it's ok.
@@ -79,16 +80,20 @@ has remotes => (
   },
 );
 
+sub remotes ($self) {
+  return map {; $self->remote_named($_) } $self->remote_names;
+}
+
 # return a list of the remotes, in some order.
 sub remote_names ($self) {
   my $ordered = $self->meta->{remote_order};
   return @$ordered if $ordered;
 
-  return sort keys $self->remotes->%*;
+  return sort keys $self->_remotes->%*;
 }
 
 sub remote_named ($self, $name) {
-  my $remote = $self->remotes->{$name};
+  my $remote = $self->_remotes->{$name};
   return $remote if $remote;
 
   die "No configuration for remote named $name!\n"
