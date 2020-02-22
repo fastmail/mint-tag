@@ -41,10 +41,10 @@ has repo => (
   required => 1,
 );
 
-has labels => (
+has label => (
   is => 'ro',
-  isa => ArrayRef[Str],
-  default => sub { [] },
+  isa => Str,
+  required => 1,
 );
 
 has tag_format => (

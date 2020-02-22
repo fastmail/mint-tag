@@ -11,7 +11,7 @@ interface_class = "Buildotron::Remote::Github"
 api_url = "https://api.github.com"
 api_key = "your-api-key"
 repo = "cyrusimap/cyrus-imapd"
-labels = [ "include-in-deploy" ]
+label = "include-in-deploy"
 tag_format = "cyrus-%d.%s"
 
 [remote.fastmail]
@@ -19,5 +19,5 @@ interface_class = "Buildotron::Remote::GitLab"
 api_url = "https://gitlab.fm/api/v4"
 api_key = "ENV:GITLAB_API_KEY"
 repo = "fastmail/cyrus-imapd"
-labels = [ "include-in-deploy" ]
+label = "include-in-deploy"
 tag_format = "cyrus-%d.%s-fastmail"

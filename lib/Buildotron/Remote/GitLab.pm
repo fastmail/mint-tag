@@ -35,9 +35,8 @@ sub uri_for ($self, $part, $query = {}) {
 }
 
 sub get_mrs ($self) {
-  my $labels = join q{,}, $self->labels->@*;
   my $mrs = $self->http_get($self->uri_for('/merge_requests', {
-    labels => $labels,
+    labels => $self->label,
     state => 'opened',
     per_page => 50,
   }));

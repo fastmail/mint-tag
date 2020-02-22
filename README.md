@@ -23,7 +23,7 @@ interface_class = "Buildotron::Remote::Github"
 api_url = "https://api.github.com"
 api_key = "your-api-key"
 repo = "cyrusimap/cyrus-imapd"
-labels = [ "include-in-deploy" ]
+label = "include-in-deploy"
 tag_format = "cyrus-%d.%s"
 
 [remote.fastmail]
@@ -31,7 +31,7 @@ interface_class = "Buildotron::Remote::GitLab"
 api_url = "https://gitlab.fm/api/v4"
 api_key = "ENV:GITLAB_API_KEY"
 repo = "fastmail/cyrus-imapd"
-labels = [ "include-in-deploy" ]
+label = "include-in-deploy"
 tag_format = "cyrus-%d.%s-fastmail"
 ```
 
@@ -55,7 +55,7 @@ and `cyrus-20200221.002`. This should probably be improved a lot.
 basically what I want.)
 
 At build time, we go and fetch _all_ the appropriately labeled merge/pull
-requests labels given, then merge them all at once into a branch.   We do this
+requests, then merge them all at once into a branch.   We do this
 once per remote. Maybe we want to do this all at once (so you wind up with a
 single merge), but for now this is ok, I think.
 
