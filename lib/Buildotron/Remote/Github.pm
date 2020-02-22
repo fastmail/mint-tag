@@ -37,13 +37,13 @@ sub uri_for ($self, $part, $query = {}) {
   return $uri;
 }
 
-sub get_mrs ($self) {
+sub get_mrs_for_label ($self, $label) {
   # Github does not allow you to get pull requests by label directly, so we
   # need to make one to fetch everything with the label we want, and then a
   # bunch of others to get the PRs themselves. (This sure would be easier if
   # it were JMAP!)
   my $issues = $self->http_get($self->uri_for('/issues', {
-    labels => $self->label,
+    labels => $label,
     sort => 'created',
     direction => 'asc',
   }));

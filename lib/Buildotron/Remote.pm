@@ -6,7 +6,7 @@ use experimental qw(signatures postderef);
 use JSON::MaybeXS qw(decode_json);
 use Types::Standard qw(Str ArrayRef Maybe);
 
-requires 'get_mrs';
+requires 'get_mrs_for_label';
 requires 'ua';
 
 has name => (
@@ -39,17 +39,6 @@ has repo => (
   is => 'ro',
   isa => Str,
   required => 1,
-);
-
-has label => (
-  is => 'ro',
-  isa => Str,
-  required => 1,
-);
-
-has tag_format => (
-  is => 'ro',
-  isa => Maybe[Str],
 );
 
 sub http_get ($self, $url) {

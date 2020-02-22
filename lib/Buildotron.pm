@@ -27,10 +27,10 @@ sub from_config_file ($class, $config_file) {
 sub build ($self) {
   $self->prepare_local_directory;
 
-  for my $remote ($self->config->remotes) {
-    my $mrs = $self->fetch_mrs_from($remote);
+  for my $step ($self->config->steps) {
+    my $mrs = $self->fetch_mrs_for($step);
     $self->merge_mrs($mrs);
-    $self->maybe_tag_commit($remote->tag_format);
+    $self->maybe_tag_commit($step->tag_format);
   }
 
   $self->finalize;
@@ -77,11 +77,11 @@ sub prepare_local_directory ($self) {
   $self->run_git('submodule', 'update');
 }
 
-sub fetch_mrs_from ($self, $remote) {
+sub fetch_mrs_for ($self, $step) {
   # get 'em
-  $Logger->log([ "fetching MRs from %s", $remote->name ]);
+  $Logger->log([ "fetching MRs for step %s", $step->name ]);
 
-  my @mrs = $remote->get_mrs;
+  my @mrs = $step->remote->get_mrs_for_label($step->label);
   for my $mr (@mrs) {
     $Logger->log([ "will merge: %s",  $mr->oneline_desc ]);
     $self->run_git('fetch', $mr->as_fetch_args);
