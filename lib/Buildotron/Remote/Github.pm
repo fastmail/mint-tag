@@ -57,14 +57,15 @@ sub get_mrs_for_label ($self, $label) {
   for my $url (@pr_urls) {
     my $pr = $self->http_get($url);
     my $head = $pr->{head};
+    my $number = $pr->{number};
 
     push @prs, Buildotron::MergeRequest->new({
       remote     => $self,
-      number     => $pr->{number},
+      number     => $number,
       author     => $pr->{user}->{login},
       title      => $pr->{title},
-      fetch_spec => $head->{repo}{git_url},
-      refname    => $head->{ref},
+      fetch_spec => $self->name,
+      refname    => "pull/$number/head",
       sha        => $head->{sha},
     });
   }

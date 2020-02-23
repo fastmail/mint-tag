@@ -43,29 +43,19 @@ sub get_mrs_for_label ($self, $label) {
 
   return [] unless @$mrs;
 
-  # For every MR, we want to grab its git url, which means we need to fetch
-  # the projects
-  my %git_urls;
-
-  my @project_ids = uniq map {; $_->{source_project_id} } @$mrs;
-
-  for my $id (@project_ids) {
-    my $url = sprintf("%s/projects/%d", $self->api_url, $id);
-    my $project = $self->http_get($url);
-    $git_urls{$id} = $project->{ssh_url_to_repo};
-  }
-
   my @sorted = sort { $a->{iid} <=> $b->{iid} } @$mrs;
   my @mrs;
 
   for my $mr (@sorted) {
+    my $number = $mr->{iid};
+
     push @mrs, Buildotron::MergeRequest->new({
       remote     => $self,
-      number     => $mr->{iid},
+      number     => $number,
       title      => $mr->{title},
       author     => $mr->{author}->{username},
-      fetch_spec => $git_urls{ $mr->{source_project_id} },
-      refname    => $mr->{source_branch},
+      fetch_spec => $self->name,
+      refname    => "merge-requests/$number/head",
       sha        => $mr->{sha},
     });
   }
