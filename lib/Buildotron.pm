@@ -168,9 +168,6 @@ sub merge_mrs ($self, $mrs) {
   };
 }
 
-# This is *terrible*. If the remote has a tag_format, it can contain %d and
-# %s, which are substituted with a date and a serial number. Almost certainly
-# we want something else (sha?) but it's quitting time for today.
 sub maybe_tag_commit ($self, $tag_format) {
   return unless $tag_format;
 
@@ -185,17 +182,13 @@ sub maybe_tag_commit ($self, $tag_format) {
     $tag =~ s/%d/$ymd/;
     $tag =~ s/%s/$candidate/;
 
-    my $tag_ok = try {
-      $self->run_git('show-ref', '-q', $tag);
-      return 0;
-    } catch {
-      # If show-ref exits zero, that means the tag already, exists and we need
-      # to keep going.  If it exits non-zero, we're done!
-      return 1;
-    };
-
-    last if $tag_ok;
+    # Do a prefix match, because we're going to add the sha at the end.
+    my $found_tags = $self->run_git('tag', '-l', "$tag*");
+    last unless $found_tags;
   }
+
+  my $short = substr $sha, 0, 8;
+  $tag .= "-g$short";
 
   $Logger->log("tagging $sha as $tag");
   $self->run_git('tag', $tag);

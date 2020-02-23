@@ -60,10 +60,12 @@ to a remote config, a name, and an optional tag format.
 
 The tagging right now is pretty janky. `%d` is replaced with today's date
 (ymd, no-hyphens, in UTC), and `%s` with a serial number, so if you build
-twice in the same day you'll get `cyrus-20200221.001` and
-`cyrus-20200221.002`. This should probably be improved a lot.  (I wish you
-could customize `git describe` a little more, because it's basically what I
-want.)
+twice in the same day you'll get reasonable version tags. We append the short
+sha of the commit at the end, prefixed with the letter `g`, as `git describe`
+does. Say your config says `tag_format = "widget-%d.%s"`. The first time you
+build on a day, you'll get `widget-20200221.001-g819cb3fc`, and the next time
+you build in the same day you'll get `widget-20200221.002-g532e933f`.  (This
+can still be improved.)
 
 ## Perly bits
 
