@@ -6,6 +6,7 @@ use experimental qw(signatures postderef);
 use JSON::MaybeXS qw(decode_json);
 use Types::Standard qw(Str ArrayRef Maybe);
 
+requires 'obtain_clone_url';    # get_clone_url was confusing...
 requires 'get_mrs_for_label';
 requires 'ua';
 
@@ -39,6 +40,13 @@ has repo => (
   is => 'ro',
   isa => Str,
   required => 1,
+);
+
+has clone_url => (
+  is => 'ro',
+  isa => Str,
+  lazy => 1,
+  builder => 'obtain_clone_url',
 );
 
 sub http_get ($self, $url) {

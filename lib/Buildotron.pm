@@ -12,9 +12,11 @@ use IPC::Run3 qw(run3);
 use Path::Tiny ();
 use Process::Status;
 use Try::Tiny;
+use Types::Standard qw(Bool InstanceOf);
 
 has config => (
   is => 'ro',
+  isa => InstanceOf['Buildotron::Config'],
   required => 1,
 );
 
@@ -66,7 +68,7 @@ sub run_git ($self, @cmd) {
 # Change into our directory, check out the correct branch, and make sure we
 # start from a clean slate.
 sub prepare_local_directory ($self) {
-  chdir $self->config->local_repo_dir;
+  $self->ensure_initial_prep;
 
   my $target = $self->config->target_branch_name;
 
@@ -75,6 +77,69 @@ sub prepare_local_directory ($self) {
   # maybe: git clean -fdx
   $self->run_git('checkout', '--no-track', '-B', $target, $self->config->upstream_base);
   $self->run_git('submodule', 'update');
+}
+
+has have_set_up => (
+  is => 'rw',
+  isa => Bool,
+  default => 0,
+);
+
+sub ensure_initial_prep ($self) {
+  return if $self->have_set_up;
+
+  my $dir = Path::Tiny::path($self->config->local_repo_dir);
+
+  # If it doesn't exist, we either need to clone it or die.
+  if (! $dir->is_dir) {
+    die "local path $dir does not exist! (maybe you should set clone = true)\n"
+      unless $self->config->should_clone;
+
+    chdir $dir->parent;
+    $Logger->log(["cloning into $dir from %s", $self->config->upstream_base]);
+
+    my $upstream = $self->config->upstream_remote_name;
+    my $remote = $self->config->remote_named($upstream);
+
+    $self->run_git(
+      'clone',
+      '--recursive',
+      '-o' => $remote->name,
+      $remote->clone_url,
+      $dir->basename
+    );
+  }
+
+  chdir $dir;
+
+  $self->_ensure_remotes;
+  $self->have_set_up(1);
+}
+
+sub _ensure_remotes ($self) {
+  my $remote_output = $self->run_git('remote', '-v');
+
+  # name => url
+  my %have_remotes = map  {; split /\t/       }
+                     grep {; s/\s+\(fetch\)// }
+                     split /\r?\n/, $remote_output;
+
+  REMOTE: for my $remote ($self->config->all_remotes) {
+    my $name = $remote->name;
+    my $remote_url = $remote->clone_url;
+
+    if (my $have = $have_remotes{$name}) {
+      # nothing to do unless they're mismatched.
+      if ($have ne $remote_url) {
+        die "mismatched remote $name: have $have, want $remote_url";
+      }
+
+      next REMOTE;
+    }
+
+    $Logger->log("adding missing remote for $name at $remote_url");
+    $self->run_git('remote', 'add', $name, $remote_url);
+  }
 }
 
 sub fetch_mrs_for ($self, $step) {

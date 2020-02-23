@@ -63,4 +63,9 @@ sub get_mrs_for_label ($self, $label) {
   return @mrs;
 }
 
+sub obtain_clone_url ($self) {
+  my $repo = $self->http_get($self->uri_for(''));
+  return $repo->{ssh_url_to_repo};
+}
+
 1;

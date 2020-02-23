@@ -14,6 +14,7 @@ directory.
 path = "/some/local/path"
 target_branch = "deploy"
 upstream_base = "upstream/master"
+clone = true
 
 [remote.github]
 interface_class = "Buildotron::Remote::Github"
@@ -41,9 +42,11 @@ tag_format = "cyrus-%d.%s-fastmail"
 ```
 
 `[local]` defines the local repository set up (i.e., on the machine this
-program is running). We assume that there is already a clone in `path`. The
-target branch is the name of the branch we will build, and the upsteam base is
-where we'll reset before starting work.
+program is running). We assume that there is already a clone in `path`; if
+there isn't, and you want to clone anew, set `clone = true` (this has no
+effect if the directory already exists). The target branch is the name of the
+branch we will build, and the upstream base is where we'll reset before
+starting work.
 
 You can have one or more remotes. Each remote must have an `interface_class`,
 which tells the builder how to fetch the MRs. You also need to provide

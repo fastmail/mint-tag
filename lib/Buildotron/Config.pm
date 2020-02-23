@@ -5,7 +5,7 @@ use Moo;
 use experimental qw(signatures postderef);
 
 use TOML::Parser;
-use Types::Standard qw(ArrayRef HashRef Str ConsumerOf InstanceOf);
+use Types::Standard qw(ArrayRef Bool HashRef Str ConsumerOf InstanceOf);
 
 use Buildotron::BuildStep;
 use Buildotron::Remote::Github;
@@ -22,6 +22,7 @@ sub from_file ($class, $file) {
     local_repo_dir     => $config->{local}{path},
     target_branch_name => $config->{local}{target_branch},
     upstream_base      => $config->{local}{upstream_base},
+    should_clone       => $config->{local}{clone},
     remotes            => $remotes,
     steps              => $steps,
   });
@@ -58,11 +59,39 @@ has upstream_base => (
   required => 1,
 );
 
+has upstream_remote_name => (
+  is => 'ro',
+  isa => Str,
+  lazy => 1,
+  default => sub ($self) {
+    my ($remote) = split m{/}, $self->upstream_base;
+    return $remote;
+  },
+);
+
+has upstream_branch_name => (
+  is => 'ro',
+  isa => Str,
+  lazy => 1,
+  default => sub ($self) {
+    my (undef, $branch) = split m{/}, $self->upstream_base;
+    return $branch;
+  },
+);
+
+has should_clone => (
+  is => 'ro',
+  isa => Bool,
+  coerce => sub ($val) { !! $val },
+);
+
 has remotes => (
   is => 'ro',
   isa => HashRef[ConsumerOf["Buildotron::Remote"]],
   required => 1,
 );
+
+sub all_remotes ($self) { return values $self->remotes->%* }
 
 sub remote_named ($self, $name) {
   my $remote = $self->remotes->{$name};
