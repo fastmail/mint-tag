@@ -18,6 +18,13 @@ has config => (
   is => 'ro',
   isa => InstanceOf['Buildotron::Config'],
   required => 1,
+  handles => [qw(
+    all_remotes
+    remote_named
+    target_branch_name
+    upstream_base
+    upstream_remote_name
+  )]
 );
 
 sub from_config_file ($class, $config_file) {
@@ -70,12 +77,12 @@ sub run_git ($self, @cmd) {
 sub prepare_local_directory ($self) {
   $self->ensure_initial_prep;
 
-  my $target = $self->config->target_branch_name;
+  my $target = $self->target_branch_name;
 
   $Logger->log("creating branch: $target");
   $self->run_git('reset', '--hard');
   # maybe: git clean -fdx
-  $self->run_git('checkout', '--no-track', '-B', $target, $self->config->upstream_base);
+  $self->run_git('checkout', '--no-track', '-B', $target, $self->upstream_base);
   $self->run_git('submodule', 'update');
 }
 
@@ -96,10 +103,9 @@ sub ensure_initial_prep ($self) {
       unless $self->config->should_clone;
 
     chdir $dir->parent;
-    $Logger->log(["cloning into $dir from %s", $self->config->upstream_base]);
+    $Logger->log(["cloning into $dir from %s", $self->upstream_base]);
 
-    my $upstream = $self->config->upstream_remote_name;
-    my $remote = $self->config->remote_named($upstream);
+    my $remote = $self->remote_named($self->upstream_remote_name);
 
     $self->run_git(
       'clone',
@@ -124,7 +130,7 @@ sub _ensure_remotes ($self) {
                      grep {; s/\s+\(fetch\)// }
                      split /\r?\n/, $remote_output;
 
-  REMOTE: for my $remote ($self->config->all_remotes) {
+  REMOTE: for my $remote ($self->all_remotes) {
     my $name = $remote->name;
     my $remote_url = $remote->clone_url;
 
@@ -216,9 +222,7 @@ sub _octopus_merge ($self, $mrs) {
 
   $self->run_git('merge', '--no-ff', '-F' => $path->absolute, @shas);
 
-  $Logger->log([ "merged $n $mrs_eng into %s",
-    $self->config->target_branch_name,
-  ]);
+  $Logger->log([ "merged $n $mrs_eng into %s", $self->target_branch_name ]);
 }
 
 sub _diagnostic_merge ($self, $mrs) {
@@ -269,7 +273,7 @@ sub _find_conflict ($self, $known_bad, $all_mrs) {
 
     $Logger->log_fatal([ "%s conflicts with %s (%s)",
       $known_bad->ident,
-      $self->config->target_branch_name,
+      $self->target_branch_name,
       $err,
     ]);
   };
