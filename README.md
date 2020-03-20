@@ -1,4 +1,4 @@
-# Buildotron
+# Mergeotron
 
 This is a pretty generic way of building branches/tags from a config file. Its
 main job is to fetch a series of merge/pull requests with some label and build
@@ -17,13 +17,13 @@ upstream_base = "upstream/master"
 clone = true
 
 [remote.github]
-interface_class = "Buildotron::Remote::Github"
+interface_class = "Mergeotron::Remote::Github"
 api_url = "https://api.github.com"
 api_key = "your-api-key"
 repo = "cyrusimap/cyrus-imapd"
 
 [remote.fastmail]
-interface_class = "Buildotron::Remote::GitLab"
+interface_class = "Mergeotron::Remote::GitLab"
 api_url = "https://gitlab.fm/api/v4"
 api_key = "ENV:GITLAB_API_KEY"
 repo = "fastmail/cyrus-imapd"
@@ -72,7 +72,7 @@ can still be improved.)
 The perl interface is meant to be dead simple:
 
 ```perl
-my $bob = Buildotron->from_config_file('config/sample.toml`);
+my $bob = Mergeotron->from_config_file('config/sample.toml`);
 $bob->build();
 ```
 
@@ -104,12 +104,12 @@ step, combine them, then call `->merge_mrs(\@all_mrs)`. You do you, buddy.
 
 ## Guts
 
-When you call `->from_config_file`, we build a Buildotron::Config object.
+When you call `->from_config_file`, we build a Mergeotron::Config object.
 That sets up objects for each remote based on their `interface_class`, either
-Github or GitLab. Those each consume the Buildotron::Remote role, which I've
+Github or GitLab. Those each consume the Mergeotron::Remote role, which I've
 been meaning to write _forever_ and this finally gave me an excuse. That role
 requires the method `get_mrs_for_label`, which returns a list of
-Buildotron::MergeRequest objects. Those are very straightforward objects, but
+Mergeotron::MergeRequest objects. Those are very straightforward objects, but
 it means that later you don't have to be concerned about the guts of the
 Github/GitLab APIs and the different ways in which they are each terrible.
 

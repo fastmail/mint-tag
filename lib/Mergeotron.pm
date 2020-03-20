@@ -1,10 +1,10 @@
 use v5.20;
-package Buildotron;
+package Mergeotron;
 use Moo;
 use experimental qw(postderef signatures);
 
-use Buildotron::Config;
-use Buildotron::Logger '$Logger';
+use Mergeotron::Config;
+use Mergeotron::Logger '$Logger';
 
 use Data::Dumper::Concise;
 use DateTime;
@@ -16,7 +16,7 @@ use Types::Standard qw(Bool InstanceOf);
 
 has config => (
   is => 'ro',
-  isa => InstanceOf['Buildotron::Config'],
+  isa => InstanceOf['Mergeotron::Config'],
   required => 1,
   handles => [qw(
     all_remotes
@@ -29,7 +29,7 @@ has config => (
 
 sub from_config_file ($class, $config_file) {
   return $class->new({
-    config => Buildotron::Config->from_file($config_file),
+    config => Mergeotron::Config->from_file($config_file),
   });
 };
 

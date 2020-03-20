@@ -1,15 +1,15 @@
 use v5.20;
 use warnings;
-package Buildotron::Config;
+package Mergeotron::Config;
 use Moo;
 use experimental qw(signatures postderef);
 
 use TOML::Parser;
 use Types::Standard qw(ArrayRef Bool HashRef Str ConsumerOf InstanceOf);
 
-use Buildotron::BuildStep;
-use Buildotron::Remote::Github;
-use Buildotron::Remote::GitLab;
+use Mergeotron::BuildStep;
+use Mergeotron::Remote::Github;
+use Mergeotron::Remote::GitLab;
 
 sub from_file ($class, $file) {
   my $config = TOML::Parser->new->parse_file($file);
@@ -87,7 +87,7 @@ has should_clone => (
 
 has remotes => (
   is => 'ro',
-  isa => HashRef[ConsumerOf["Buildotron::Remote"]],
+  isa => HashRef[ConsumerOf["Mergeotron::Remote"]],
   required => 1,
 );
 
@@ -119,7 +119,7 @@ sub _assemble_remotes ($class, $remote_config) {
 
 has _steps => (
   is => 'ro',
-  isa => ArrayRef[InstanceOf["Buildotron::BuildStep"]],
+  isa => ArrayRef[InstanceOf["Mergeotron::BuildStep"]],
   required => 1,
   init_arg => 'steps',
 );
@@ -134,7 +134,7 @@ sub _assemble_steps ($class, $step_config, $remotes) {
     my $remote = $remotes->{$remote_name};
     die "No matching remote found for $remote_name!\n" unless $remote;
 
-    push @steps, Buildotron::BuildStep->new({
+    push @steps, Mergeotron::BuildStep->new({
       remote => $remote,
       %$step,
     });

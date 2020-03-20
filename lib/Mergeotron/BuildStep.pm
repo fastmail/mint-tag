@@ -1,5 +1,5 @@
 use v5.20;
-package Buildotron::BuildStep;
+package Mergeotron::BuildStep;
 use Moo;
 use experimental qw(signatures postderef);
 
@@ -13,7 +13,7 @@ has name => (
 
 has remote => (
   is => 'ro',
-  isa => ConsumerOf["Buildotron::Remote"],
+  isa => ConsumerOf["Mergeotron::Remote"],
   required => 1,
   handles => {
     remote_name => 'name',

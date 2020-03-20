@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 use v5.20;
 use lib 'lib';
-use Buildotron;
+use Mergeotron;
 
-use Buildotron::Logger '$Logger' => { init => {
-  ident     => 'buildotron',
+use Mergeotron::Logger '$Logger' => { init => {
+  ident     => 'mergeotron',
   facility  => 'news',
   to_stdout => 1,
 } };
@@ -19,4 +19,4 @@ my ($opt, $usage) = describe_options(
 
 print($usage->text), exit if $opt->help;
 
-Buildotron->from_config_file($opt->config)->build();
+Mergeotron->from_config_file($opt->config)->build();

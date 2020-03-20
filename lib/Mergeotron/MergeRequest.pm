@@ -1,5 +1,5 @@
 use v5.20;
-package Buildotron::MergeRequest;
+package Mergeotron::MergeRequest;
 # ABSTRACT: a tiny class to represent merge requests from different places
 
 use Moo;
@@ -9,7 +9,7 @@ use Types::Standard qw(Int Str ConsumerOf);
 
 has remote => (
   is => 'ro',
-  isa => ConsumerOf["Buildotron::Remote"],
+  isa => ConsumerOf["Mergeotron::Remote"],
   required => 1,
   handles => {
     remote_name => 'name',

@@ -1,14 +1,14 @@
 use v5.20;
-package Buildotron::Remote::Github;
+package Mergeotron::Remote::Github;
 use Moo;
 use experimental qw(postderef signatures);
 
-with 'Buildotron::Remote';
+with 'Mergeotron::Remote';
 
 use LWP::UserAgent;
 use URI;
 
-use Buildotron::MergeRequest;
+use Mergeotron::MergeRequest;
 
 sub ua;
 has ua => (
@@ -59,7 +59,7 @@ sub get_mrs_for_label ($self, $label) {
     my $head = $pr->{head};
     my $number = $pr->{number};
 
-    push @prs, Buildotron::MergeRequest->new({
+    push @prs, Mergeotron::MergeRequest->new({
       remote     => $self,
       number     => $number,
       author     => $pr->{user}->{login},

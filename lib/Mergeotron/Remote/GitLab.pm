@@ -1,9 +1,9 @@
 use v5.20;
-package Buildotron::Remote::GitLab;
+package Mergeotron::Remote::GitLab;
 use Moo;
 use experimental qw(postderef signatures);
 
-with 'Buildotron::Remote';
+with 'Mergeotron::Remote';
 
 use List::Util qw(uniq);
 use LWP::UserAgent;
@@ -49,7 +49,7 @@ sub get_mrs_for_label ($self, $label) {
   for my $mr (@sorted) {
     my $number = $mr->{iid};
 
-    push @mrs, Buildotron::MergeRequest->new({
+    push @mrs, Mergeotron::MergeRequest->new({
       remote     => $self,
       number     => $number,
       title      => $mr->{title},

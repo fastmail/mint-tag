@@ -1,5 +1,5 @@
 use v5.20;
-package Buildotron::Remote;
+package Mergeotron::Remote;
 use Moo::Role;
 use experimental qw(signatures postderef);
 
