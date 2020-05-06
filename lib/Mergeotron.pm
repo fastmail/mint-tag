@@ -36,9 +36,17 @@ sub from_config_file ($class, $config_file) {
 sub build ($self) {
   $self->prepare_local_directory;
 
+  # Fetch
   for my $step ($self->config->steps) {
     my $mrs = $self->fetch_mrs_for($step);
-    $self->merge_mrs($mrs);
+    $step->set_merge_requests($mrs);
+  }
+
+  # Confirm
+
+  # Act
+  for my $step ($self->config->steps) {
+    $self->merge_mrs($step->merge_requests);
     $self->maybe_tag_commit($step->tag_format);
   }
 

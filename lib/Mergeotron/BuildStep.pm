@@ -3,7 +3,7 @@ package Mergeotron::BuildStep;
 use Moo;
 use experimental qw(signatures postderef);
 
-use Types::Standard qw(Str ConsumerOf Maybe);
+use Types::Standard qw(Str ConsumerOf Maybe ArrayRef InstanceOf);
 
 has name => (
   is => 'ro',
@@ -29,6 +29,13 @@ has label => (
 has tag_format => (
   is => 'ro',
   isa => Maybe[Str],
+);
+
+has merge_requests => (
+  is => 'ro',
+  init_arg => undef,
+  isa => ArrayRef[InstanceOf["Mergeotron::MergeRequest"]],
+  writer => 'set_merge_requests'
 );
 
 1;
