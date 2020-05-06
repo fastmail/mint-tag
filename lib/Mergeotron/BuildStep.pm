@@ -5,6 +5,8 @@ use experimental qw(signatures postderef);
 
 use Types::Standard qw(Str ConsumerOf Maybe ArrayRef InstanceOf);
 
+use Mergeotron::Logger '$Logger';
+
 has name => (
   is => 'ro',
   isa => Str,
@@ -37,5 +39,9 @@ has merge_requests => (
   isa => ArrayRef[InstanceOf["Mergeotron::MergeRequest"]],
   writer => 'set_merge_requests'
 );
+
+sub proxy_logger ($self) {
+  return $Logger->proxy({proxy_prefix => $self->name . ': ' });
+}
 
 1;

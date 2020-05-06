@@ -27,17 +27,27 @@ has config => (
   )]
 );
 
+has interactive => (
+  is => 'rw',
+  default => 1,
+);
+
 sub from_config_file ($class, $config_file) {
   return $class->new({
     config => Mergeotron::Config->from_file($config_file),
   });
 };
 
-sub build ($self) {
+sub build ($self, $auto_mode = 0) {
+  if ($auto_mode) {
+    $self->interactive(0);
+  }
+
   $self->prepare_local_directory;
 
   # Fetch
   for my $step ($self->config->steps) {
+    local $Logger = $step->proxy_logger;
     my $mrs = $self->fetch_mrs_for($step);
     $step->set_merge_requests($mrs);
   }
@@ -46,6 +56,7 @@ sub build ($self) {
 
   # Act
   for my $step ($self->config->steps) {
+    local $Logger = $step->proxy_logger;
     $self->merge_mrs($step->merge_requests);
     $self->maybe_tag_commit($step->tag_format);
   }
@@ -83,6 +94,7 @@ sub run_git ($self, @cmd) {
 # Change into our directory, check out the correct branch, and make sure we
 # start from a clean slate.
 sub prepare_local_directory ($self) {
+  local $Logger = $Logger->proxy({ proxy_prefix => 'local setup: ' });
   $self->ensure_initial_prep;
 
   my $target = $self->target_branch_name;
@@ -158,7 +170,10 @@ sub _ensure_remotes ($self) {
 
 sub fetch_mrs_for ($self, $step) {
   # get 'em
-  $Logger->log([ "fetching MRs for step %s", $step->name ]);
+  $Logger->log([ "fetching MRs from remote %s with label %s",
+    $step->remote->name,
+    $step->label,
+  ]);
 
   my @mrs = $step->remote->get_mrs_for_label($step->label);
   for my $mr (@mrs) {

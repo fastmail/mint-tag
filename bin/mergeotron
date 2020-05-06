@@ -7,6 +7,8 @@ use Mergeotron::Logger '$Logger' => { init => {
   ident     => 'mergeotron',
   facility  => 'news',
   to_stdout => 1,
+  log_pid   => 0,
+  prefix    => 'log | ',
 } };
 
 use Getopt::Long::Descriptive;
@@ -14,9 +16,10 @@ use Getopt::Long::Descriptive;
 my ($opt, $usage) = describe_options(
   '%c %o',
   [ 'config|c=s', 'config file to use', { required => 1 } ],
+  [ 'auto',       'do not run in interactive mode' ],
   [ 'help|h',     'show help and exit', { shortcircuit => 1 } ],
 );
 
 print($usage->text), exit if $opt->help;
 
-Mergeotron->from_config_file($opt->config)->build();
+Mergeotron->from_config_file($opt->config)->build($opt->auto);
