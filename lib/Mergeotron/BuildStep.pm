@@ -3,7 +3,7 @@ package Mergeotron::BuildStep;
 use Moo;
 use experimental qw(signatures postderef);
 
-use Types::Standard qw(Str ConsumerOf Maybe ArrayRef InstanceOf);
+use Types::Standard qw(Bool Str ConsumerOf Maybe ArrayRef InstanceOf);
 
 use Mergeotron::Logger '$Logger';
 
@@ -32,6 +32,18 @@ has tag_format => (
   is => 'ro',
   isa => Maybe[Str],
 );
+
+has push_tag_to => (
+  is => 'ro',
+  isa => Maybe[ConsumerOf["Mergeotron::Remote"]],
+);
+
+sub BUILD ($self, $arg) {
+  if ($self->push_tag_to && ! $self->tag_format) {
+    my $name = $self->name;
+    die "Remote $name doesn't make sense: you defined a tag push target but no tag format!\n";
+  }
+}
 
 has _merge_requests => (
   is => 'ro',

@@ -134,8 +134,15 @@ sub _assemble_steps ($class, $step_config, $remotes) {
     my $remote = $remotes->{$remote_name};
     die "No matching remote found for $remote_name!\n" unless $remote;
 
+    my $tag_remote;
+    if (my $tag_remote_name = delete $step->{push_tag_to}) {
+      $tag_remote = $remotes->{$tag_remote_name};
+      die "No matching remote found for $tag_remote!\n" unless $tag_remote;
+    }
+
     push @steps, Mergeotron::BuildStep->new({
-      remote => $remote,
+      remote      => $remote,
+      push_tag_to => $tag_remote,
       %$step,
     });
   }

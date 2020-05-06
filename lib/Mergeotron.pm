@@ -61,7 +61,7 @@ sub build ($self, $auto_mode = 0) {
   for my $step ($self->config->steps) {
     local $Logger = $step->proxy_logger;
     $self->merge_mrs([ $step->merge_requests ]);
-    $self->maybe_tag_commit($step->tag_format);
+    $self->maybe_tag_commit($step);
   }
 
   $self->finalize;
@@ -230,6 +230,10 @@ sub confirm_plan ($self) {
       say "* " . $mr->oneline_desc;
     }
 
+    if (my $remote = $step->push_tag_to) {
+      say "\nWe'd tag that and push it tag to the remote named " . $remote->name . '.';
+    }
+
     say "";
   }
 
@@ -274,8 +278,8 @@ sub merge_mrs ($self, $mrs) {
 # We append an 8-char sha to the end of every tag format. So, a tag format of
 # "cyrus-%d.%s" will be tagged as "cyrus-20200505.001-g12345678", and a build
 # later the same day will be "cyrus-20200505.002-g90abcdef".
-sub maybe_tag_commit ($self, $tag_format) {
-  return unless $tag_format;
+sub maybe_tag_commit ($self, $step) {
+  return unless $step->tag_format;
 
   my $ymd = DateTime->now(time_zone => 'UTC')->ymd('');
   my $sha = $self->run_git('rev-parse', 'HEAD');
@@ -284,7 +288,7 @@ sub maybe_tag_commit ($self, $tag_format) {
 
   for (my $n = 1; $n < 1000; $n++) {
     my $candidate = sprintf '%03d', $n;
-    $tag = $tag_format;
+    $tag = $step->tag_format;
     $tag =~ s/%d/$ymd/;
     $tag =~ s/%s/$candidate/;
 
@@ -298,10 +302,16 @@ sub maybe_tag_commit ($self, $tag_format) {
 
   $Logger->log("tagging $sha as $tag");
   $self->run_git('tag', $tag);
+
+  if (my $remote = $step->push_tag_to) {
+    $Logger->log(["pushing tag to remote %s", $remote->name ]);
+    $self->run_git('push', $remote->name, $tag);
+  }
 }
 
 sub finalize ($self) {
   # I put this here, but I'm not sure right now that it will do anything.
+  $Logger->log("done!");
 }
 
 sub _octopus_merge ($self, $mrs) {
