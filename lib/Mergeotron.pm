@@ -266,6 +266,14 @@ sub merge_mrs ($self, $mrs) {
   };
 }
 
+# $tag_format is a poor man's sprintf. Here are the replacements you can use:
+#
+# - %d: replaced with date in YYYYMMDD format
+# - %s: three-digit serial number for this build (incremented until it's unique)
+#
+# We append an 8-char sha to the end of every tag format. So, a tag format of
+# "cyrus-%d.%s" will be tagged as "cyrus-20200505.001-g12345678", and a build
+# later the same day will be "cyrus-20200505.002-g90abcdef".
 sub maybe_tag_commit ($self, $tag_format) {
   return unless $tag_format;
 
