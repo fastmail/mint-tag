@@ -28,7 +28,10 @@ has api_key => (
   required => 1,
   coerce => sub ($val) {
     if ($val =~ s/^ENV://) {
-      return $ENV{$val};
+      my $got = $ENV{$val};
+      return $got if $got;
+
+      die "I was looking for an environment variable $val, but didn't find one!\n";
     }
 
     return $val;

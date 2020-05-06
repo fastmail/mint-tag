@@ -56,6 +56,15 @@ has sha => (
   required => 1,
 );
 
+has short_sha => (
+  is => 'ro',
+  isa => Str,
+  lazy => 1,
+  default => sub ($self) {
+    return substr $self->sha, 0, 8;
+  },
+);
+
 has ident => (
   is => 'ro',
   lazy => 1,
@@ -69,9 +78,9 @@ sub as_fetch_args ($self) {
 }
 
 sub oneline_desc ($self) {
-  return sprintf("%s!%d (%s) - %s",
-    $self->remote_name,
+  return sprintf("!%d, %s (%s) - %s",
     $self->number,
+    $self->short_sha,
     $self->author,
     $self->title
   );

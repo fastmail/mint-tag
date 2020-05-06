@@ -33,12 +33,14 @@ has tag_format => (
   isa => Maybe[Str],
 );
 
-has merge_requests => (
+has _merge_requests => (
   is => 'ro',
   init_arg => undef,
   isa => ArrayRef[InstanceOf["Mergeotron::MergeRequest"]],
   writer => 'set_merge_requests'
 );
+
+sub merge_requests { $_[0]->_merge_requests->@* }
 
 sub proxy_logger ($self) {
   return $Logger->proxy({proxy_prefix => $self->name . ': ' });
