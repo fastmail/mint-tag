@@ -178,7 +178,7 @@ sub fetch_mrs_for ($self, $step) {
     $step->label,
   ]);
 
-  my @mrs = $step->remote->get_mrs_for_label($step->label);
+  my @mrs = $step->remote->get_mrs_for_label($step->label, $step->trusted_org);
   for my $mr (@mrs) {
     $Logger->log([ "fetched %s!%s",  $mr->remote_name, $mr->number ]);
     $self->run_git('fetch', $mr->as_fetch_args);

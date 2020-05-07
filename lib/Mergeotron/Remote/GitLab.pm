@@ -10,6 +10,8 @@ use LWP::UserAgent;
 use URI;
 use URI::Escape qw(uri_escape);
 
+use Mergeotron::Logger '$Logger';
+
 sub ua;
 has ua => (
   is => 'ro',
@@ -34,7 +36,14 @@ sub uri_for ($self, $part, $query = {}) {
   return $uri;
 }
 
-sub get_mrs_for_label ($self, $label) {
+sub get_mrs_for_label ($self, $label, $trusted_org_name) {
+  my $should_filter = !! $trusted_org_name;
+  my %ok_usernames;
+
+  if ($trusted_org_name) {
+    %ok_usernames = map {; $_ => 1 } $self->usernames_for_org($trusted_org_name);
+  }
+
   my $mrs = $self->http_get($self->uri_for('/merge_requests', {
     labels => $label,
     state => 'opened',
@@ -48,6 +57,19 @@ sub get_mrs_for_label ($self, $label) {
 
   for my $mr (@sorted) {
     my $number = $mr->{iid};
+    my $username = $mr->{author}{username};
+
+    if ($should_filter && ! $ok_usernames{$username}) {
+      $Logger->log([
+        "ignoring MR %s!%s from untrusted user %s (not in org %s)",
+        $self->name,
+        $number,
+        $username,
+        $trusted_org_name,
+      ]);
+
+      next;
+    }
 
     push @mrs, Mergeotron::MergeRequest->new({
       remote     => $self,
@@ -66,6 +88,21 @@ sub get_mrs_for_label ($self, $label) {
 sub obtain_clone_url ($self) {
   my $repo = $self->http_get($self->uri_for(''));
   return $repo->{ssh_url_to_repo};
+}
+
+sub usernames_for_org ($self, $name) {
+  my $members = $self->http_get(sprintf("%s/groups/%s/members?per_page=100",
+    $self->api_url,
+    $name,
+  ));
+
+  unless (@$members) {
+    die "Hmm...we didn't find any members for the trusted org named $name!\n";
+  }
+
+  return map  {; $_->{username} }
+         grep {; $_->{state} eq 'active' }
+         @$members;
 }
 
 1;

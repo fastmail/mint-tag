@@ -32,6 +32,7 @@ repo = "fastmail/cyrus-imapd"
 name = "upstream"
 remote = "github"
 label = "include-in-deploy"
+trusted_org = "fastmail"
 tag_format = "cyrus-%d.%s"
 
 [[build_steps]]
@@ -66,6 +67,9 @@ does. Say your config says `tag_format = "widget-%d.%s"`. The first time you
 build on a day, you'll get `widget-20200221.001-g819cb3fc`, and the next time
 you build in the same day you'll get `widget-20200221.002-g532e933f`.  (This
 can still be improved.)
+
+If a build step has a `trusted_org` key, it means only merge requests authored
+by members of that organization will be included in the build.
 
 ## Perly bits
 

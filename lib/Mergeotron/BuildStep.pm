@@ -28,6 +28,13 @@ has label => (
   required => 1,
 );
 
+# If this is here, it's the name of a group/organization that we trust; if our
+# label was added by someone not in this group, we'll reject it.
+has trusted_org => (
+  is => 'ro',
+  isa => Maybe[Str],
+);
+
 has tag_format => (
   is => 'ro',
   isa => Maybe[Str],
