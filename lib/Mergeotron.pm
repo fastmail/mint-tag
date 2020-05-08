@@ -328,6 +328,25 @@ sub _octopus_merge ($self, $mrs) {
   my $path = Path::Tiny->tempfile();
   $path->spew_utf8($msg);
 
+  # Here we're going to grab the latest author date of the MRs we include,
+  # then use that for both the author and committer dates, so that we can get
+  # repeatable shas.
+  my $latest = 0;
+  for my $mr (@$mrs) {
+    my $epoch = $self->run_git('show', '--no-patch', '--format=%at', $mr->sha);
+    $latest = $epoch if $epoch > $latest;
+  }
+
+  # use the latest one we got, but never commit at epoch zero!
+  my $stamp = $latest ? "$latest -0000" : undef;
+
+  local $ENV{GIT_AUTHOR_NAME}     = 'Mergeotron';
+  local $ENV{GIT_AUTHOR_EMAIL}    = 'mergeotron@role.fastmailteam.com';
+  local $ENV{GIT_AUTHOR_DATE}     = $stamp;
+  local $ENV{GIT_COMMITTER_NAME}  = 'Mergeotron';
+  local $ENV{GIT_COMMITTER_EMAIL} = 'mergeotron@role.fastmailteam.com';
+  local $ENV{GIT_COMMITTER_DATE}  = $stamp;
+
   $Logger->log("octopus merging $n $mrs_eng");
 
   $self->run_git('merge', '--no-ff', '-F' => $path->absolute, @shas);
