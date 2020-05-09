@@ -19,6 +19,8 @@ sub from_file ($class, $file) {
 
   return $class->new({
     cfg                => $config,
+    committer_name     => $config->{meta}{committer_name},
+    committer_email    => $config->{meta}{committer_email},
     local_repo_dir     => $config->{local}{path},
     target_branch_name => $config->{local}{target_branch},
     upstream_base      => $config->{local}{upstream_base},
@@ -35,10 +37,16 @@ has _cfg => (
   isa => HashRef,
 );
 
-has meta => (
+has committer_name => (
   is => 'ro',
-  isa => HashRef,
-  # required => 1,
+  isa => Str,
+  default => 'Mergeotron',
+);
+
+has committer_email => (
+  is => 'ro',
+  isa => Str,
+  required => 1,
 );
 
 has local_repo_dir => (

@@ -340,11 +340,11 @@ sub _octopus_merge ($self, $mrs) {
   # use the latest one we got, but never commit at epoch zero!
   my $stamp = $latest ? "$latest -0000" : undef;
 
-  local $ENV{GIT_AUTHOR_NAME}     = 'Mergeotron';
-  local $ENV{GIT_AUTHOR_EMAIL}    = 'mergeotron@role.fastmailteam.com';
+  local $ENV{GIT_AUTHOR_NAME}     = $self->config->committer_name;
+  local $ENV{GIT_AUTHOR_EMAIL}    = $self->config->committer_email;
   local $ENV{GIT_AUTHOR_DATE}     = $stamp;
-  local $ENV{GIT_COMMITTER_NAME}  = 'Mergeotron';
-  local $ENV{GIT_COMMITTER_EMAIL} = 'mergeotron@role.fastmailteam.com';
+  local $ENV{GIT_COMMITTER_NAME}  = $self->config->committer_name;
+  local $ENV{GIT_COMMITTER_EMAIL} = $self->config->committer_email;
   local $ENV{GIT_COMMITTER_DATE}  = $stamp;
 
   $Logger->log("octopus merging $n $mrs_eng");

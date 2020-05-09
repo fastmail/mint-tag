@@ -10,6 +10,10 @@ This is all driven by a config file. There's a sample in the config/
 directory.
 
 ```toml
+[meta]
+committer_name = "Mergebot 9000"
+committer_email = "git@example.com"
+
 [local]
 path = "/some/local/path"
 target_branch = "deploy"
@@ -41,6 +45,13 @@ remote = "fastmail"
 label = "include-in-deploy"
 tag_format = "cyrus-%d.%s-fastmail"
 ```
+
+`[meta]` defines the committer who will be the author of these commits.
+`committer_name` is optional (it defaults to "Mergeotron"), but
+`committer_email` is required. We require this, rather than use whatever git
+config you have set up in your environment, so that the SHAs produced by the
+builder are guaranteed to be the same, provided they have the same parent and
+constituent merge requests.
 
 `[local]` defines the local repository set up (i.e., on the machine this
 program is running). We assume that there is already a clone in `path`; if
