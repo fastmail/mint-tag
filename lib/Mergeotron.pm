@@ -105,6 +105,7 @@ sub prepare_local_directory ($self) {
   $Logger->log("creating branch: $target");
   $self->run_git('reset', '--hard');
   # maybe: git clean -fdx
+  $self->run_git('fetch', $self->upstream_remote_name);
   $self->run_git('checkout', '--no-track', '-B', $target, $self->upstream_base);
   $self->run_git('submodule', 'update');
 }
