@@ -3,13 +3,13 @@ package Mergeotron;
 use Moo;
 use experimental qw(postderef signatures);
 
+use Mergeotron::Approver;
 use Mergeotron::Config;
 use Mergeotron::Logger '$Logger';
 use Mergeotron::Util qw(run_git);
 
 use Data::Dumper::Concise;
 use DateTime;
-use List::Util qw(sum0);
 use Path::Tiny ();
 use Process::Status;
 use Term::ANSIColor qw(color colored);
@@ -54,8 +54,11 @@ sub build ($self, $auto_mode = 0) {
     $step->set_merge_requests($mrs);
   }
 
-  # Confirm
-  $self->confirm_plan if $self->interactive;
+  if ($self->interactive) {
+    # exits on lack of user confirmation
+    my $approver = Mergeotron::Approver->new($self->config);
+    $approver->confirm_plan;
+  }
 
   # Act
   for my $step ($self->config->steps) {
@@ -159,76 +162,6 @@ sub fetch_mrs_for ($self, $step) {
   }
 
   return \@mrs;
-}
-
-sub confirm_plan ($self) {
-  my $head = run_git('rev-parse', 'HEAD');
-
-  say '';
-
-  printf("Okay, here's the plan! We're going to build a branch called %s.\n",
-    colored($self->target_branch_name, 'bright_blue'),
-  );
-
-  printf("We're starting with %s, which is at commit %s.\n\n",
-    colored($self->upstream_base, 'bright_blue'),
-    colored(substr($head, 0, 12), 'bright_blue'),
-  );
-
-  my $i = 1;
-
-  my $total_mr_count = sum0 map {; scalar $_->merge_requests } $self->config->steps;
-  unless ($total_mr_count > 0) {
-    say "Well, that would have been a great branch, but I couldn't find anything";
-    say "to merge. I guess I'll give up now; maybe next time!";
-    exit 0;
-  }
-
-  for my $step ($self->config->steps) {
-    my $header = "Step $i: " . $step->name;
-    $i++;
-    say $header;
-    say '-' x length $header;
-
-    unless ($step->merge_requests) {
-      printf("Nothing to do! No merge requests labeled %s found on remote %s\n",
-        $step->label,
-        $step->remote->name,
-      );
-      next;
-    }
-
-    say "We're going to include the following merge requests:\n";
-
-    for my $mr ($step->merge_requests) {
-      say "* " . $mr->oneline_desc;
-    }
-
-    if (my $remote = $step->push_tag_to) {
-      say "\nWe'd tag that and push it tag to the remote named " . $remote->name . '.';
-    }
-
-    say "";
-  }
-
-  print "Continue? [y/n] ";
-  while (my $input = <STDIN>) {
-    chomp($input);
-
-    if (lc $input eq 'y') {
-      say "Great...here we go!\n";
-      return;
-    }
-
-    if (lc $input eq 'n') {
-      say "Alright then...see you next time!";
-      exit 1;
-    }
-
-    print "Sorry, I didn't understand that! [y/n] ";
-  }
-
-  die "wait, how did you get here?";
 }
 
 sub merge_mrs ($self, $mrs) {
