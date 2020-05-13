@@ -12,7 +12,6 @@ use Data::Dumper::Concise;
 use DateTime;
 use Path::Tiny ();
 use Process::Status;
-use Term::ANSIColor qw(color colored);
 use Try::Tiny;
 use Types::Standard qw(Bool InstanceOf);
 
@@ -33,6 +32,13 @@ has interactive => (
   is => 'rw',
   default => 1,
 );
+
+has merge_base => (
+  is => 'rw',
+  init_arg => undef,
+);
+
+my $ANNOTATION_VERSION = 1;
 
 sub from_config_file ($class, $config_file) {
   return $class->new({
@@ -84,6 +90,9 @@ sub prepare_local_directory ($self) {
   run_git('fetch', $self->upstream_remote_name);
   run_git('checkout', '--no-track', '-B', $target, $self->upstream_base);
   run_git('submodule', 'update');
+
+  my $base_sha = run_git('rev-parse', 'HEAD');
+  $self->merge_base($base_sha);
 }
 
 has have_set_up => (
@@ -214,27 +223,35 @@ sub maybe_tag_commit ($self, $this_step) {
   $tag .= "-g$short";
 
   # We want to include some metadata in the tag: for every MR we included,
-  # the remote, its numbers, and its sha.
+  # the remote, its numbers, and its sha. We'll spew it as TOML so it's easy
+  # to parse later. (But...the TOML generation perl library kinda stinks, so
+  # I'ma construct it manually. It's fine. -- michael, 2020-05-13)
   my @lines = (
     sprintf("mergotron-tagged commit from step named %s", $this_step->name),
+    "",
+    "[meta]",
+    sprintf("annotation_version = %s", $ANNOTATION_VERSION),
+    sprintf("base = %s", $self->merge_base),
     "",
   );
 
   for my $step ($self->config->steps) {
-    my $url = $step->remote->clone_url;
+    push @lines, '[[build_steps]]';
+    push @lines, sprintf('name = %s', $step->name);
+    push @lines, sprintf('remote = %s', $step->remote->clone_url);
+    push @lines, 'merge_requests = [';
 
     for my $mr ($step->merge_requests) {
-      push @lines, join q{|}, $url, $mr->number, $mr->sha;
+      push @lines, sprintf('  { number="%s", sha="%s" },', $mr->number, $mr->sha);
     }
+
+    push @lines, ']';
+    push @lines, '';
 
     last if $step eq $this_step;
   }
 
-  # Write our commit message into a file. This is potentially quite long, and
-  # we don't really want it to show up in the debug logs for the commands.
-  local $ENV{GIT_AUTHOR_NAME}  = $self->config->committer_name;
-  local $ENV{GIT_AUTHOR_EMAIL} = $self->config->committer_email;
-
+  # spew the message to a file
   my $path = Path::Tiny->tempfile();
   $path->spew_utf8(join "\n", @lines);
 
