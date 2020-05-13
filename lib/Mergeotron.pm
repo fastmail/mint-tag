@@ -5,10 +5,10 @@ use experimental qw(postderef signatures);
 
 use Mergeotron::Config;
 use Mergeotron::Logger '$Logger';
+use Mergeotron::Util qw(run_git);
 
 use Data::Dumper::Concise;
 use DateTime;
-use IPC::Run3 qw(run3);
 use List::Util qw(sum0);
 use Path::Tiny ();
 use Process::Status;
@@ -67,33 +67,6 @@ sub build ($self, $auto_mode = 0) {
   $self->finalize;
 }
 
-sub run_git ($self, @cmd) {
-  # A little silly, but hey.
-  my $arg = {};
-  $arg = pop @cmd if ref $cmd[-1] eq 'HASH';
-
-  $Logger->log_debug([ "run: %s", join(q{ }, 'git', @cmd) ]);
-
-  my $in = $arg->{stdin} // undef;
-  my $out;
-
-  unshift @cmd, 'git';
-  run3(\@cmd, $in, \$out, \$out);
-  my $ps = Process::Status->new;
-
-  chomp $out;
-
-  if ($Logger->get_debug) {
-    local $Logger = $Logger->proxy({ proxy_prefix => '(git): ' });
-    my @lines = split /\r?\n/, $out;
-    $Logger->log_debug($_) for @lines;
-  }
-
-  $ps->assert_ok(join(q{ }, @cmd[0..1]));
-
-  return $out;
-}
-
 # Change into our directory, check out the correct branch, and make sure we
 # start from a clean slate.
 sub prepare_local_directory ($self) {
@@ -103,11 +76,11 @@ sub prepare_local_directory ($self) {
   my $target = $self->target_branch_name;
 
   $Logger->log("creating branch: $target");
-  $self->run_git('reset', '--hard');
+  run_git('reset', '--hard');
   # maybe: git clean -fdx
-  $self->run_git('fetch', $self->upstream_remote_name);
-  $self->run_git('checkout', '--no-track', '-B', $target, $self->upstream_base);
-  $self->run_git('submodule', 'update');
+  run_git('fetch', $self->upstream_remote_name);
+  run_git('checkout', '--no-track', '-B', $target, $self->upstream_base);
+  run_git('submodule', 'update');
 }
 
 has have_set_up => (
@@ -131,7 +104,7 @@ sub ensure_initial_prep ($self) {
 
     my $remote = $self->remote_named($self->upstream_remote_name);
 
-    $self->run_git(
+    run_git(
       'clone',
       '--recursive',
       '-o' => $remote->name,
@@ -147,7 +120,7 @@ sub ensure_initial_prep ($self) {
 }
 
 sub _ensure_remotes ($self) {
-  my $remote_output = $self->run_git('remote', '-v');
+  my $remote_output = run_git('remote', '-v');
 
   # name => url
   my %have_remotes = map  {; split /\t/       }
@@ -168,7 +141,7 @@ sub _ensure_remotes ($self) {
     }
 
     $Logger->log("adding missing remote for $name at $remote_url");
-    $self->run_git('remote', 'add', $name, $remote_url);
+    run_git('remote', 'add', $name, $remote_url);
   }
 }
 
@@ -182,14 +155,14 @@ sub fetch_mrs_for ($self, $step) {
   my @mrs = $step->remote->get_mrs_for_label($step->label, $step->trusted_org);
   for my $mr (@mrs) {
     $Logger->log([ "fetched %s!%s",  $mr->remote_name, $mr->number ]);
-    $self->run_git('fetch', $mr->as_fetch_args);
+    run_git('fetch', $mr->as_fetch_args);
   }
 
   return \@mrs;
 }
 
 sub confirm_plan ($self) {
-  my $head = $self->run_git('rev-parse', 'HEAD');
+  my $head = run_git('rev-parse', 'HEAD');
 
   say '';
 
@@ -283,7 +256,7 @@ sub maybe_tag_commit ($self, $this_step) {
   return unless $this_step->tag_format;
 
   my $ymd = DateTime->now(time_zone => 'UTC')->ymd('');
-  my $sha = $self->run_git('rev-parse', 'HEAD');
+  my $sha = run_git('rev-parse', 'HEAD');
 
   if (my $existing = $self->check_existing_tags($this_step->tag_format, $sha)) {
     my $short = substr $sha, 0, 12;
@@ -300,7 +273,7 @@ sub maybe_tag_commit ($self, $this_step) {
     $tag =~ s/%s/$candidate/;
 
     # Do a prefix match, because we're going to add the sha at the end.
-    my $found_tags = $self->run_git('tag', '-l', "$tag*");
+    my $found_tags = run_git('tag', '-l', "$tag*");
     last unless $found_tags;
   }
 
@@ -333,7 +306,7 @@ sub maybe_tag_commit ($self, $this_step) {
   $path->spew_utf8(join "\n", @lines);
 
   $Logger->log("tagging $sha as $tag");
-  $self->run_git('tag', '-F', $path->absolute, $tag);
+  run_git('tag', '-F', $path->absolute, $tag);
 
   $self->maybe_push_tag($this_step, $tag);
 }
@@ -341,7 +314,7 @@ sub maybe_tag_commit ($self, $this_step) {
 sub check_existing_tags($self, $format, $sha) {
   # if we already have a tag for this tag format pointing at our head, don't
   # bother making another one!
-  my @have_tags = split /\n/, $self->run_git('tag', '-l', '--points-at', $sha);
+  my @have_tags = split /\n/, run_git('tag', '-l', '--points-at', $sha);
 
   return unless @have_tags;
 
@@ -357,7 +330,7 @@ sub check_existing_tags($self, $format, $sha) {
 sub maybe_push_tag ($self, $step, $tag) {
   if (my $remote = $step->push_tag_to) {
     $Logger->log(["pushing tag to remote %s", $remote->name ]);
-    $self->run_git('push', $remote->name, $tag);
+    run_git('push', $remote->name, $tag);
   }
 }
 
@@ -385,7 +358,7 @@ sub _octopus_merge ($self, $mrs) {
   # repeatable shas.
   my $latest = 0;
   for my $mr (@$mrs) {
-    my $epoch = $self->run_git('show', '--no-patch', '--format=%at', $mr->sha);
+    my $epoch = run_git('show', '--no-patch', '--format=%at', $mr->sha);
     $latest = $epoch if $epoch > $latest;
   }
 
@@ -401,7 +374,7 @@ sub _octopus_merge ($self, $mrs) {
 
   $Logger->log("octopus merging $n $mrs_eng");
 
-  $self->run_git('merge', '--no-ff', '-F' => $path->absolute, @shas);
+  run_git('merge', '--no-ff', '-F' => $path->absolute, @shas);
 
   $Logger->log([ "merged $n $mrs_eng into %s", $self->target_branch_name ]);
 }
@@ -415,8 +388,8 @@ sub _diagnostic_merge ($self, $mrs) {
     $Logger->log([ "merging %s", $mr->oneline_desc ]);
 
     try {
-      $self->run_git('merge', '--no-ff', '-m' => $mr->as_commit_message, $mr->sha);
-      $self->run_git('submodule', 'update');
+      run_git('merge', '--no-ff', '-m' => $mr->as_commit_message, $mr->sha);
+      run_git('submodule', 'update');
     } catch {
       my $err = $_;
       chomp $err;
@@ -446,8 +419,8 @@ sub _find_conflict ($self, $known_bad, $all_mrs) {
     $Logger->log([ "merging known-bad MR: %s", $known_bad->ident ]);
 
     my $msg = $known_bad->as_commit_message;
-    $self->run_git('merge', '--no-ff', '-m' => $msg, $known_bad->sha);
-    $self->run_git('submodule', 'update');
+    run_git('merge', '--no-ff', '-m' => $msg, $known_bad->sha);
+    run_git('submodule', 'update');
   } catch {
     my $err = $_;
     chomp $err;
@@ -468,11 +441,11 @@ sub _find_conflict ($self, $known_bad, $all_mrs) {
 
       # NB: this prefix nonsense is because I have diff.noprefix true in my
       # local gitconfig, which causes this command to fail cryptically.
-      my $patch = $self->run_git(
+      my $patch = run_git(
         'format-patch', '--src-prefix=a/', '--dst-prefix=b/', '--stdout', $mr->sha
       );
 
-      $self->run_git('apply', 'check', { stdin => \$patch });
+      run_git('apply', 'check', { stdin => \$patch });
     } catch {
       my $err = $_;
       chomp $err;
