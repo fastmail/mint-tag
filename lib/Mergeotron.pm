@@ -279,8 +279,8 @@ sub merge_mrs ($self, $mrs) {
 # We append an 8-char sha to the end of every tag format. So, a tag format of
 # "cyrus-%d.%s" will be tagged as "cyrus-20200505.001-g12345678", and a build
 # later the same day will be "cyrus-20200505.002-g90abcdef".
-sub maybe_tag_commit ($self, $step) {
-  return unless $step->tag_format;
+sub maybe_tag_commit ($self, $this_step) {
+  return unless $this_step->tag_format;
 
   my $ymd = DateTime->now(time_zone => 'UTC')->ymd('');
   my $sha = $self->run_git('rev-parse', 'HEAD');
@@ -289,7 +289,7 @@ sub maybe_tag_commit ($self, $step) {
 
   for (my $n = 1; $n < 1000; $n++) {
     my $candidate = sprintf '%03d', $n;
-    $tag = $step->tag_format;
+    $tag = $this_step->tag_format;
     $tag =~ s/%d/$ymd/;
     $tag =~ s/%s/$candidate/;
 
@@ -301,10 +301,35 @@ sub maybe_tag_commit ($self, $step) {
   my $short = substr $sha, 0, 8;
   $tag .= "-g$short";
 
-  $Logger->log("tagging $sha as $tag");
-  $self->run_git('tag', $tag);
+  # We want to include some metadata in the tag: for every MR we included,
+  # the remote, its numbers, and its sha.
+  my @lines = (
+    sprintf("mergotron-tagged commit from step named %s", $this_step->name),
+    "",
+  );
 
-  if (my $remote = $step->push_tag_to) {
+  for my $step ($self->config->steps) {
+    my $url = $step->remote->clone_url;
+
+    for my $mr ($step->merge_requests) {
+      push @lines, join q{|}, $url, $mr->number, $mr->sha;
+    }
+
+    last if $step eq $this_step;
+  }
+
+  # Write our commit message into a file. This is potentially quite long, and
+  # we don't really want it to show up in the debug logs for the commands.
+  local $ENV{GIT_AUTHOR_NAME}  = $self->config->committer_name;
+  local $ENV{GIT_AUTHOR_EMAIL} = $self->config->committer_email;
+
+  my $path = Path::Tiny->tempfile();
+  $path->spew_utf8(join "\n", @lines);
+
+  $Logger->log("tagging $sha as $tag");
+  $self->run_git('tag', '-F', $path->absolute, $tag);
+
+  if (my $remote = $this_step->push_tag_to) {
     $Logger->log(["pushing tag to remote %s", $remote->name ]);
     $self->run_git('push', $remote->name, $tag);
   }
