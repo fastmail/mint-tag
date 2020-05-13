@@ -285,8 +285,14 @@ sub maybe_tag_commit ($self, $this_step) {
   my $ymd = DateTime->now(time_zone => 'UTC')->ymd('');
   my $sha = $self->run_git('rev-parse', 'HEAD');
 
-  my $tag;
+  if (my $existing = $self->check_existing_tags($this_step->tag_format, $sha)) {
+    my $short = substr $sha, 0, 12;
+    $Logger->log("$short already tagged as $existing; skipping");
+    $self->maybe_push_tag($this_step, $existing);
+    return;
+  }
 
+  my $tag;
   for (my $n = 1; $n < 1000; $n++) {
     my $candidate = sprintf '%03d', $n;
     $tag = $this_step->tag_format;
@@ -329,7 +335,27 @@ sub maybe_tag_commit ($self, $this_step) {
   $Logger->log("tagging $sha as $tag");
   $self->run_git('tag', '-F', $path->absolute, $tag);
 
-  if (my $remote = $this_step->push_tag_to) {
+  $self->maybe_push_tag($this_step, $tag);
+}
+
+sub check_existing_tags($self, $format, $sha) {
+  # if we already have a tag for this tag format pointing at our head, don't
+  # bother making another one!
+  my @have_tags = split /\n/, $self->run_git('tag', '-l', '--points-at', $sha);
+
+  return unless @have_tags;
+
+  # This is pretty janky...
+  my $re = quotemeta($format);
+  $re =~ s/\\%d/\\d{8}/;
+  $re =~ s/\\%s/\\d{3}/;
+
+  my ($tag) = grep {; $_ =~ qr{$re} } @have_tags;
+  return $tag;
+}
+
+sub maybe_push_tag ($self, $step, $tag) {
+  if (my $remote = $step->push_tag_to) {
     $Logger->log(["pushing tag to remote %s", $remote->name ]);
     $self->run_git('push', $remote->name, $tag);
   }
