@@ -135,7 +135,8 @@ has merge_requests => (
         # maybe: rethink if we want to include merge-base?
         $mrs{$key} = {
           base => $mr->{merge_base},
-          sha => $mr->{sha}
+          sha => $mr->{sha},
+          step_name => $step->{name},
         },
       }
     }

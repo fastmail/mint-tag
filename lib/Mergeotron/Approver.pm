@@ -165,6 +165,10 @@ sub output_step ($self, $step, $counter_ref) {
         $delta = $mr->sha        eq $old->{sha}  ? 'unchanged'
                : $mr->merge_base ne $old->{base} ? "was $short_sha, has been rebased"
                :                                   "was $short_sha";
+
+        if ($old->{step_name} ne $step->name) {
+          $delta .= ", was in step named $old->{step_name}";
+        }
       } else {
         $delta = 'new branch';
       }
