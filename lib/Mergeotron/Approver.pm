@@ -135,6 +135,8 @@ sub maybe_set_last_build ($self) {
       $build->annotation_version,
       $Mergeotron::ANNOTATION_VERSION,
     ]);
+
+    return;
   }
 
   $self->_set_last_build($build);
