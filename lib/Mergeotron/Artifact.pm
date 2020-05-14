@@ -58,6 +58,7 @@ has step_data => (
         push $data->{merge_requests}->@*, {
           number => $mr->number,
           sha    => $mr->sha,
+          merge_base => $mr->merge_base,
         };
       }
 
@@ -88,7 +89,12 @@ sub as_toml ($self) {
     push @lines, 'merge_requests = [';
 
     for my $mr ($step->{merge_requests}->@*) {
-      push @lines, sprintf('  { number="%s", sha="%s" },', $mr->{number}, $mr->{sha});
+      push @lines, sprintf(
+        '  { number="%s", sha="%s", merge_base="%s" },',
+        $mr->{number},
+        $mr->{sha},
+        $mr->{merge_base},
+      );
     }
 
     push @lines, ']';

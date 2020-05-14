@@ -78,6 +78,9 @@ sub fetch_mrs ($self) {
   for my $mr ($self->merge_requests) {
     run_git('fetch', $mr->as_fetch_args);
     $Logger->log([ "fetched %s!%s",  $mr->remote_name, $mr->number ]);
+
+    my $base = run_git('merge-base', 'master', $mr->sha);
+    $mr->set_merge_base($base);
   }
 }
 

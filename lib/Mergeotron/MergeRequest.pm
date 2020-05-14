@@ -73,6 +73,12 @@ has ident => (
   },
 );
 
+has merge_base => (
+  is => 'ro',
+  isa => Str,
+  writer => 'set_merge_base',
+);
+
 sub as_fetch_args ($self) {
   return ($self->fetch_spec, $self->refname);
 }
