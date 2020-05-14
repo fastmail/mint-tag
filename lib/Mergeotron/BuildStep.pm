@@ -66,7 +66,7 @@ sub proxy_logger ($self) {
   return $Logger->proxy({proxy_prefix => $self->name . ': ' });
 }
 
-sub fetch_mrs ($self) {
+sub fetch_mrs ($self, $merge_base) {
   $Logger->log([ "fetching MRs from remote %s with label %s",
     $self->remote->name,
     $self->label,
@@ -79,7 +79,7 @@ sub fetch_mrs ($self) {
     run_git('fetch', $mr->as_fetch_args);
     $Logger->log([ "fetched %s!%s",  $mr->remote_name, $mr->number ]);
 
-    my $base = run_git('merge-base', 'master', $mr->sha);
+    my $base = run_git('merge-base', $merge_base, $mr->sha);
     $mr->set_merge_base($base);
   }
 }

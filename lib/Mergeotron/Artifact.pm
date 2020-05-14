@@ -136,7 +136,10 @@ has merge_requests => (
         my $key = sprintf("%s!%d", $url, $mr->{number});
 
         # maybe: rethink if we want to include merge-base?
-        $mrs{$key} = $mr->{sha};
+        $mrs{$key} = {
+          base => $mr->{merge_base},
+          sha => $mr->{sha}
+        },
       }
     }
 
@@ -150,11 +153,11 @@ sub _key_for_mr ($class, $mr) {
 
 # $mr is a blessed merge request object
 sub contains_mr ($self, $mr) {
-  return !! $self->sha_for_mr($mr);
+  return !! $self->data_for_mr($mr);
 }
 
 # return the data we have matching a blessed merge request object
-sub sha_for_mr ($self, $mr) {
+sub data_for_mr ($self, $mr) {
   return $self->merge_requests->{ $self->_key_for_mr($mr) };
 }
 

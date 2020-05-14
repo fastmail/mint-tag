@@ -159,15 +159,12 @@ sub output_step ($self, $step, $counter_ref) {
 
     if (my $artifact = $self->last_build) {
       if ($artifact->contains_mr($mr)) {
-        my $sha = $artifact->sha_for_mr($mr);
+        my $old = $artifact->data_for_mr($mr);
+        my $short_sha = substr $old->{sha}, 0, 8;
 
-        if ($mr->sha eq $sha) {
-          $delta = 'unchanged';
-        } else {
-          # TODO: detect change of merge base
-          my $old = substr $sha, 0, 8;
-          $delta = "was $old";
-        }
+        $delta = $mr->sha        eq $old->{sha}  ? 'unchanged'
+               : $mr->merge_base ne $old->{base} ? "was $short_sha, has been rebased"
+               :                                   "was $short_sha";
       } else {
         $delta = 'new branch';
       }

@@ -57,7 +57,7 @@ sub build ($self, $auto_mode = 0) {
   # Fetch
   for my $step ($self->config->steps) {
     local $Logger = $step->proxy_logger;
-    $step->fetch_mrs;
+    $step->fetch_mrs($self->upstream_base);   # to set merge-base
   }
 
   if ($self->interactive) {
