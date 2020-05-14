@@ -8,6 +8,7 @@ use Term::ANSIColor qw(color colored);
 use Try::Tiny;
 use Types::Standard qw(HashRef InstanceOf Maybe);
 
+use Mergeotron::Artifact;
 use Mergeotron::Logger '$Logger';
 use Mergeotron::Util qw(run_git re_for_tag);
 
@@ -19,7 +20,7 @@ has config => (
 
 has last_build => (
   is => 'ro',
-  isa => Maybe[HashRef],
+  isa => Maybe[InstanceOf['Mergeotron::Artifact']],
   predicate => 'has_last_build',
   writer => '_set_last_build',
 );
@@ -45,10 +46,12 @@ sub confirm_plan ($self) {
   );
 
   if ($self->has_last_build) {
-    printf("The last tag I found for this config was %s.\n\n",
-      colored($self->last_build->{meta}{tag}, 'bright_blue'),
+    printf("The last tag I found for this config was %s.\n",
+      colored($self->last_build->tag_name, 'bright_blue'),
     );
   }
+
+  say '';
 
   my $i = 1;
 
@@ -140,27 +143,18 @@ sub maybe_set_last_build ($self) {
   # slice off header and blank line
   $body =~ s/\A.*?\n\n//m;
 
-  my $data = try {
-    TOML::Parser->new->parse($body);
-  } catch {
-    my $e = $_;
-    $Logger->log("error reading TOML from commit message; ignoring");
-  };
+  my $build = Mergeotron::Artifact->from_toml($self->config, $body);
+  return unless $build;
 
-  return unless $data;
-
-  if ($data->{meta}{annotation_version} != $Mergeotron::ANNOTATION_VERSION) {
+  if ($build->annotation_version != $Mergeotron::ANNOTATION_VERSION) {
     $Logger->log([
       "ignoring previous build; built with annotation version %s, current is %s",
-      $data->{meta}{annotation_version},
+      $build->annotation_version,
       $Mergeotron::ANNOTATION_VERSION,
     ]);
   }
 
-  $data->{meta}{tag} = $tagname;
-
-  # TODO: maybe, make this an object
-  $self->_set_last_build($data);
+  $self->_set_last_build($build);
 }
 
 1;

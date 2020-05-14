@@ -201,6 +201,7 @@ sub maybe_tag_commit ($self, $this_step) {
   $tag .= "-g$short";
 
   my $artifact = Mergeotron::Artifact->new({
+    annotation_version => $ANNOTATION_VERSION,
     config    => $self->config,
     base      => $self->merge_base,
     tag_name  => $tag,

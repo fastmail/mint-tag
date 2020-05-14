@@ -3,7 +3,11 @@ package Mergeotron::Artifact;
 use Moo;
 use experimental qw(postderef signatures);
 
-use Types::Standard qw(InstanceOf Maybe Str);
+use TOML::Parser;
+use Try::Tiny;
+use Types::Standard qw(InstanceOf Int Maybe Str);
+
+use Mergeotron::Logger '$Logger';
 
 has config => (
   is => 'ro',
@@ -21,6 +25,12 @@ has tag_name => (
   is => 'ro',
   required => 1,
   isa => Str,
+);
+
+has annotation_version => (
+  is => 'ro',
+  required => 1,
+  isa => Int,
 );
 
 # used when building from a mergeotron object, not when generating from tag
@@ -62,16 +72,11 @@ has step_data => (
 # The TOML generation perl library kinda stinks, so I'ma construct it
 # manually. It's fine. -- michael, 2020-05-13
 sub as_toml ($self) {
-  my $version = do {
-     no warnings 'once';
-     $Mergeotron::ANNOTATION_VERSION;
-  };
-
   # This wants to be a template, BUT ALSO.
   my @lines = (
     '[meta]',
     sprintf('tag_name = "%s"', $self->tag_name),
-    sprintf('annotation_version = %d', $version),
+    sprintf('annotation_version = %d', $self->annotation_version),
     sprintf('base = "%s"', $self->base),
     "",
   );
@@ -91,6 +96,25 @@ sub as_toml ($self) {
   }
 
   return join "\n", @lines;
+}
+
+sub from_toml ($class, $config, $toml_str) {
+  my $data = try {
+    TOML::Parser->new->parse($toml_str);
+  } catch {
+    my $e = $_;
+    $Logger->log("error reading artifact from TOML");
+  };
+
+  return unless $data;
+
+  return $class->new({
+    config => $config,
+    base => $data->{meta}{base},
+    tag_name => $data->{meta}{tag_name},
+    annotation_version => $data->{meta}{annotation_version},
+    step_data => $data->{build_steps},
+  });
 }
 
 1;
