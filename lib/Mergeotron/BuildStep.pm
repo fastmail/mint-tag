@@ -6,6 +6,7 @@ use experimental qw(signatures postderef);
 use Types::Standard qw(Bool Str ConsumerOf Maybe ArrayRef InstanceOf);
 
 use Mergeotron::Logger '$Logger';
+use Mergeotron::Util qw(run_git);
 
 has name => (
   is => 'ro',
@@ -63,6 +64,21 @@ sub merge_requests { $_[0]->_merge_requests->@* }
 
 sub proxy_logger ($self) {
   return $Logger->proxy({proxy_prefix => $self->name . ': ' });
+}
+
+sub fetch_mrs ($self) {
+  $Logger->log([ "fetching MRs from remote %s with label %s",
+    $self->remote->name,
+    $self->label,
+  ]);
+
+  my @mrs = $self->remote->get_mrs_for_label($self->label, $self->trusted_org);
+  $self->set_merge_requests(\@mrs);
+
+  for my $mr ($self->merge_requests) {
+    run_git('fetch', $mr->as_fetch_args);
+    $Logger->log([ "fetched %s!%s",  $mr->remote_name, $mr->number ]);
+  }
 }
 
 1;

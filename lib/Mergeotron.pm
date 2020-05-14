@@ -56,8 +56,7 @@ sub build ($self, $auto_mode = 0) {
   # Fetch
   for my $step ($self->config->steps) {
     local $Logger = $step->proxy_logger;
-    my $mrs = $self->fetch_mrs_for($step);
-    $step->set_merge_requests($mrs);
+    $step->fetch_mrs;
   }
 
   if ($self->interactive) {
@@ -155,22 +154,6 @@ sub _ensure_remotes ($self) {
     $Logger->log("adding missing remote for $name at $remote_url");
     run_git('remote', 'add', $name, $remote_url);
   }
-}
-
-sub fetch_mrs_for ($self, $step) {
-  # get 'em
-  $Logger->log([ "fetching MRs from remote %s with label %s",
-    $step->remote->name,
-    $step->label,
-  ]);
-
-  my @mrs = $step->remote->get_mrs_for_label($step->label, $step->trusted_org);
-  for my $mr (@mrs) {
-    $Logger->log([ "fetched %s!%s",  $mr->remote_name, $mr->number ]);
-    run_git('fetch', $mr->as_fetch_args);
-  }
-
-  return \@mrs;
 }
 
 sub merge_mrs ($self, $mrs) {
