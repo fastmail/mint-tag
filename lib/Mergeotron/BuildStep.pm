@@ -35,7 +35,7 @@ has trusted_org => (
   isa => Maybe[Str],
 );
 
-has tag_format => (
+has tag_prefix => (
   is => 'ro',
   isa => Maybe[Str],
 );
@@ -46,9 +46,9 @@ has push_tag_to => (
 );
 
 sub BUILD ($self, $arg) {
-  if ($self->push_tag_to && ! $self->tag_format) {
+  if ($self->push_tag_to && ! $self->tag_prefix) {
     my $name = $self->name;
-    die "Remote $name doesn't make sense: you defined a tag push target but no tag format!\n";
+    die "Remote $name doesn't make sense: you defined a tag push target but no tag prefix!\n";
   }
 }
 

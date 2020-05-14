@@ -186,21 +186,15 @@ sub merge_mrs ($self, $mrs) {
   };
 }
 
-# $tag_format is a poor man's sprintf. Here are the replacements you can use:
-#
-# - %d: replaced with date in YYYYMMDD format
-# - %s: three-digit serial number for this build (incremented until it's unique)
-#
-# We append an 8-char sha to the end of every tag format. So, a tag format of
-# "cyrus-%d.%s" will be tagged as "cyrus-20200505.001-g12345678", and a build
-# later the same day will be "cyrus-20200505.002-g90abcdef".
+# Our tag format is going to be opinionated. If there's a tag_prefix in config,
+# we'll tag the commit in the format PREFIX-yyyymmdd.nnn-gSHA
 sub maybe_tag_commit ($self, $this_step) {
-  return unless $this_step->tag_format;
+  return unless $this_step->tag_prefix;
 
   my $ymd = DateTime->now(time_zone => 'UTC')->ymd('');
   my $sha = run_git('rev-parse', 'HEAD');
 
-  if (my $existing = $self->check_existing_tags($this_step->tag_format, $sha)) {
+  if (my $existing = $self->check_existing_tags($this_step->tag_prefix, $sha)) {
     my $short = substr $sha, 0, 12;
     $Logger->log("$short already tagged as $existing; skipping");
     $self->maybe_push_tag($this_step, $existing);
@@ -208,11 +202,11 @@ sub maybe_tag_commit ($self, $this_step) {
   }
 
   my $tag;
+  my $prefix = $this_step->tag_prefix;
+
   for (my $n = 1; $n < 1000; $n++) {
     my $candidate = sprintf '%03d', $n;
-    $tag = $this_step->tag_format;
-    $tag =~ s/%d/$ymd/;
-    $tag =~ s/%s/$candidate/;
+    $tag = "$prefix-$ymd.$candidate";
 
     # Do a prefix match, because we're going to add the sha at the end.
     my $found_tags = run_git('tag', '-l', "$tag*");
@@ -261,19 +255,15 @@ sub maybe_tag_commit ($self, $this_step) {
   $self->maybe_push_tag($this_step, $tag);
 }
 
-sub check_existing_tags($self, $format, $sha) {
+sub check_existing_tags($self, $prefix, $sha) {
   # if we already have a tag for this tag format pointing at our head, don't
   # bother making another one!
   my @have_tags = split /\n/, run_git('tag', '-l', '--points-at', $sha);
-
   return unless @have_tags;
 
-  # This is pretty janky...
-  my $re = quotemeta($format);
-  $re =~ s/\\%d/\\d{8}/;
-  $re =~ s/\\%s/\\d{3}/;
+  my $re = qr{\Q$prefix\E-\d{8}\.\d{3}}a;
 
-  my ($tag) = grep {; $_ =~ qr{$re} } @have_tags;
+  my ($tag) = grep {; $_ =~ $re } @have_tags;
   return $tag;
 }
 

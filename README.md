@@ -37,13 +37,13 @@ name = "upstream"
 remote = "github"
 label = "include-in-deploy"
 trusted_org = "fastmail"
-tag_format = "cyrus-%d.%s"
+tag_prefix = "cyrus"
 
 [[build_steps]]
 name = "capstone"
 remote = "fastmail"
 label = "include-in-deploy"
-tag_format = "cyrus-%d.%s-fastmail"
+tag_prefix = "cyrus-fm"
 ```
 
 `[meta]` defines the committer who will be the author of these commits.
@@ -68,16 +68,10 @@ it from the named environment variable instead. That means you can commit the
 configs without worrying about leaking secrets.
 
 `build_steps` is contains multiple steps; each must include a label, a pointer
-to a remote config, a name, and an optional tag format.
-
-The tagging right now is pretty janky. `%d` is replaced with today's date
-(ymd, no-hyphens, in UTC), and `%s` with a serial number, so if you build
-twice in the same day you'll get reasonable version tags. We append the short
-sha of the commit at the end, prefixed with the letter `g`, as `git describe`
-does. Say your config says `tag_format = "widget-%d.%s"`. The first time you
-build on a day, you'll get `widget-20200221.001-g819cb3fc`, and the next time
-you build in the same day you'll get `widget-20200221.002-g532e933f`.  (This
-can still be improved.)
+to a remote config, a name, and an optional tag prefix. If you specify it,
+you'll get a tag in the form `PREFIX-yyyymmdd.nnn-gSHA`, where `yyyymmdd` is
+the current date in UTC, and `nnn` is a serial number (starting at 001,
+incremented each day).
 
 If a build step has a `trusted_org` key, it means only merge requests authored
 by members of that organization will be included in the build.
@@ -91,27 +85,8 @@ my $bob = Mergeotron->from_config_file('config/sample.toml`);
 $bob->build();
 ```
 
-The build routine itself does this:
-
-```perl
-sub build ($self) {
-  $self->prepare_local_directory;
-
-  for my $step ($self->config->steps) {
-    my $mrs = $self->fetch_mrs_for($step);
-    $self->merge_mrs($mrs);
-    $self->maybe_tag_commit($step->tag_format);
-  }
-
-  $self->finalize;
-}
-```
-
-Right now, `finalize` is a no-op, but eventually it will probably push tags
-and whatnot to some remote.
-
-If you want more control over the build process, you can just call those
-methods yourself. YOu might do this if, say, you want a human to confirm that
+If you want more control over the build process, you can just call individual
+methods yourself. You might do this if, say, you want a human to confirm that
 those MRs are in fact the ones you want, and insert `$self->confirm_mrs($mrs)`
 between the fetch and merge steps. Or, maybe you want to merge all the MRs at
 once in a big octopus, in which case you could fetch the MRs from every
@@ -137,7 +112,7 @@ The merging process is straightforward:
 This is mostly stolen from the branch rebuilder we have in hm, but with better
 diagnostics (I hope).
 
-If you've defined a `tag_format` for a step, we'll tag the resulting commit.
+If you've defined a `tag_prefix` for a step, we'll tag the resulting commit.
 That's straightforward, if a little silly.
 
 This uses only CPAN modules. If you have a normal rjbs-influenced environment,
