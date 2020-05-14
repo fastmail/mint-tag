@@ -81,6 +81,19 @@ sub fetch_mrs ($self, $merge_base) {
 
     my $base = run_git('merge-base', $merge_base, $mr->sha);
     $mr->set_merge_base($base);
+
+    # Compute the patch id, but turn off debug logging, because it's gonna be
+    # super noisy.
+    my $is_debug = $Logger->get_debug;
+    $Logger->set_debug(0);
+
+    my $patch = run_git('diff-tree', '--patch-with-raw', $base, $mr->sha);
+
+    $Logger->set_debug($is_debug);
+
+    my $line = run_git('patch-id', { stdin => \$patch });
+    my ($patch_id) = split /\s/, $line;
+    $mr->set_patch_id($patch_id);
   }
 }
 

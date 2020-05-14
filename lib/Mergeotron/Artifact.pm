@@ -59,6 +59,7 @@ has step_data => (
           number => $mr->number,
           sha    => $mr->sha,
           merge_base => $mr->merge_base,
+          patch_id   => $mr->patch_id,
         };
       }
 
@@ -93,6 +94,7 @@ sub as_toml ($self) {
       push @lines, sprintf('  number = "%s"',     $mr->{number});
       push @lines, sprintf('  sha = "%s"',        $mr->{sha});
       push @lines, sprintf('  merge_base = "%s"', $mr->{merge_base});
+      push @lines, sprintf('  patch_id = "%s"',   $mr->{patch_id});
     }
 
     push @lines, '';

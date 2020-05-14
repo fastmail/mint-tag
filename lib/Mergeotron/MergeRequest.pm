@@ -79,6 +79,12 @@ has merge_base => (
   writer => 'set_merge_base',
 );
 
+has patch_id => (
+  is => 'ro',
+  isa => Str,
+  writer => 'set_patch_id',
+);
+
 has state => (
   is => 'ro',
   isa => Str,
