@@ -38,7 +38,7 @@ has merge_base => (
   init_arg => undef,
 );
 
-my $ANNOTATION_VERSION = 1;
+our $ANNOTATION_VERSION = 1;
 
 sub from_config_file ($class, $config_file) {
   return $class->new({
@@ -204,18 +204,18 @@ sub maybe_tag_commit ($self, $this_step) {
   # to parse later. (But...the TOML generation perl library kinda stinks, so
   # I'ma construct it manually. It's fine. -- michael, 2020-05-13)
   my @lines = (
-    sprintf("mergotron-tagged commit from step named %s", $this_step->name),
-    "",
-    "[meta]",
-    sprintf("annotation_version = %s", $ANNOTATION_VERSION),
-    sprintf("base = %s", $self->merge_base),
+    sprintf('mergeotron-tagged commit from step named %s', $this_step->name),
+    '',
+    '[meta]',
+    sprintf('annotation_version = %d', $ANNOTATION_VERSION),
+    sprintf('base = "%s"', $self->merge_base),
     "",
   );
 
   for my $step ($self->config->steps) {
     push @lines, '[[build_steps]]';
-    push @lines, sprintf('name = %s', $step->name);
-    push @lines, sprintf('remote = %s', $step->remote->clone_url);
+    push @lines, sprintf('name = "%s"', $step->name);
+    push @lines, sprintf('remote = "%s"', $step->remote->clone_url);
     push @lines, 'merge_requests = [';
 
     for my $mr ($step->merge_requests) {
