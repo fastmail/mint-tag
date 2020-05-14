@@ -117,4 +117,39 @@ sub from_toml ($class, $config, $toml_str) {
   });
 }
 
+# This is step_data, but in a different shape. Keyed on $cloneurl!$number
+has merge_requests => (
+  is => 'ro',
+  lazy => 1,
+  default => sub ($self) {
+    my %mrs;
+
+    for my $step ($self->step_data->@*) {
+      my $url = $step->{remote};
+      for my $mr ($step->{merge_requests}->@*) {
+        my $key = sprintf("%s!%d", $url, $mr->{number});
+
+        # maybe: rethink if we want to include merge-base?
+        $mrs{$key} = $mr->{sha};
+      }
+    }
+
+    return \%mrs;
+  },
+);
+
+sub _key_for_mr ($class, $mr) {
+  return sprintf("%s!%d", $mr->remote->clone_url, $mr->number);
+}
+
+# $mr is a blessed merge request object
+sub contains_mr ($self, $mr) {
+  return !! $self->sha_for_mr($mr);
+}
+
+# return the data we have matching a blessed merge request object
+sub sha_for_mr ($self, $mr) {
+  return $self->merge_requests->{ $self->_key_for_mr($mr) };
+}
+
 1;

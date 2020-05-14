@@ -99,6 +99,16 @@ has remotes => (
   required => 1,
 );
 
+has _remotes_by_url => (
+  is => 'ro',
+  lazy => 1,
+  default => sub ($self) {
+    # This is potentially lossy, if you have the same remote with more than
+    # one name. I think that's fine, for the purposes we need it for.
+    return +{ map {; $_->clone_url => $_ } $self->all_remotes };
+  }
+);
+
 sub all_remotes ($self) { return values $self->remotes->%* }
 
 sub remote_named ($self, $name) {

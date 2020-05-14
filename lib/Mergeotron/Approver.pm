@@ -150,11 +150,39 @@ sub output_step ($self, $step, $counter_ref) {
     return;
   }
 
-  say "We're going to include the following merge requests:\n";
+  printf("We'll include these merge requests from the remote named %s:\n\n",
+    $step->remote->name,
+  );
 
   for my $mr ($step->merge_requests) {
+    my $delta = 'no previous build';
+
+    if (my $artifact = $self->last_build) {
+      if ($artifact->contains_mr($mr)) {
+        my $sha = $artifact->sha_for_mr($mr);
+
+        if ($mr->sha eq $sha) {
+          $delta = 'unchanged';
+        } else {
+          # TODO: detect change of merge base
+          my $old = substr $sha, 0, 8;
+          $delta = "was $old";
+        }
+      } else {
+        $delta = 'new branch';
+      }
+    }
+
+    my $mr_desc = sprintf("!%d, %s (%s):\n    %s - %s",
+      $mr->number,
+      $mr->short_sha,
+      $delta,
+      $mr->author,
+      $mr->title,
+    );
+
     my $i = $$counter_ref++;
-    say "$i: " . $mr->oneline_desc;
+    say "$i: $mr_desc";
   }
 
   if (my $remote = $step->push_tag_to) {
