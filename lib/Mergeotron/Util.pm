@@ -7,6 +7,7 @@ use Mergeotron::Logger '$Logger';
 use Process::Status;
 use Sub::Exporter -setup => [ qw(
   run_git
+  re_for_tag
 ) ];
 
 sub run_git (@cmd) {
@@ -34,6 +35,10 @@ sub run_git (@cmd) {
   $ps->assert_ok(join(q{ }, @cmd[0..1]));
 
   return $out;
+}
+
+sub re_for_tag ($prefix) {
+  return qr/\Q$prefix\E-\d{8}\.\d{3}/a;
 }
 
 1;

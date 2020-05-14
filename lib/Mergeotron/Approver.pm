@@ -7,7 +7,8 @@ use List::Util qw(sum0);
 use Term::ANSIColor qw(color colored);
 use Types::Standard qw(InstanceOf);
 
-use Mergeotron::Util qw(run_git);
+use Mergeotron::Logger '$Logger';
+use Mergeotron::Util qw(run_git re_for_tag);
 
 has config => (
   is => 'ro',
@@ -28,10 +29,18 @@ sub confirm_plan ($self) {
     colored($self->config->target_branch_name, 'bright_blue'),
   );
 
-  printf("We're starting with %s, which is at commit %s.\n\n",
+  printf("We're starting with %s, which is at commit %s.\n",
     colored($self->config->upstream_base, 'bright_blue'),
     colored(substr($head, 0, 12), 'bright_blue'),
   );
+
+  my $previous = $self->last_tag_for_config;
+
+  if ($previous) {
+    printf("The last tag I found for this config was %s.\n\n",
+      colored($previous, 'bright_blue'),
+    );
+  }
 
   my $i = 1;
 
@@ -69,21 +78,17 @@ sub confirm_plan ($self) {
     say "";
   }
 
-  say "From here, you can do several things:\n";
-  say "1. Get more information";
-  say "2. Continue with the build";
-  say "3. Give up";
-  print "\nWhich would you prefer? ";
+  print "Continue? yes/no/help\n> ";
 
   while (my $input = <STDIN>) {
     chomp($input);
 
-    if (lc $input eq '2') {
+    if ($input =~ /y(es)?/i) {
       say "Great...here we go!\n";
       return;
     }
 
-    if (lc $input eq '3') {
+    if ($input =~ /no?/i) {
       say "Alright then...see you next time!";
       exit 1;
     }
@@ -92,6 +97,25 @@ sub confirm_plan ($self) {
   }
 
   die "wait, how did you get here?";
+}
+
+# return the most recent tag matching this config's *last* defined step.
+sub last_tag_for_config ($self) {
+  my ($prefix) = map  {; $_->tag_prefix         }
+                 grep {; defined $_->tag_prefix }
+                 reverse $self->config->steps;
+
+  return unless $prefix;
+
+  my $output = run_git(qw(tag -l), "$prefix*");
+
+  my $re = re_for_tag($prefix);
+
+  my @have = sort {; $b cmp $a }
+             grep {; $_ =~ $re }
+             split /\n/, $output;
+
+  return $have[0];
 }
 
 1;

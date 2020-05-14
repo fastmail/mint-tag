@@ -6,7 +6,7 @@ use experimental qw(postderef signatures);
 use Mergeotron::Approver;
 use Mergeotron::Config;
 use Mergeotron::Logger '$Logger';
-use Mergeotron::Util qw(run_git);
+use Mergeotron::Util qw(run_git re_for_tag);
 
 use Data::Dumper::Concise;
 use DateTime;
@@ -244,8 +244,7 @@ sub check_existing_tags($self, $prefix, $sha) {
   my @have_tags = split /\n/, run_git('tag', '-l', '--points-at', $sha);
   return unless @have_tags;
 
-  my $re = qr{\Q$prefix\E-\d{8}\.\d{3}}a;
-
+  my $re = re_for_tag($prefix);
   my ($tag) = grep {; $_ =~ $re } @have_tags;
   return $tag;
 }
