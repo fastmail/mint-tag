@@ -186,6 +186,19 @@ sub output_step ($self, $step, $counter_ref) {
     say "$i: $mr_desc";
   }
 
+  # Find anything that was in the last build, but has now disappeared
+  if ($self->has_last_build) {
+    my @missing = $self->last_build->mrs_not_in($step);
+    if (@missing) {
+      say "\nLast time, we included these merge requests, which have disappeared:";
+    }
+
+    for my $gone (@missing) {
+      my $short = substr $gone->{sha}, 0, 8;
+      say "!$gone->{number} (was $short)";
+    }
+  }
+
   if (my $remote = $step->push_tag_to) {
     say "\nWe'd tag that and push it tag to the remote named " . $remote->name . '.';
   }

@@ -134,8 +134,7 @@ has merge_requests => (
 
         # maybe: rethink if we want to include merge-base?
         $mrs{$key} = {
-          base => $mr->{merge_base},
-          sha => $mr->{sha},
+          %$mr,
           step_name => $step->{name},
         },
       }
@@ -157,6 +156,17 @@ sub contains_mr ($self, $mr) {
 # return the data we have matching a blessed merge request object
 sub data_for_mr ($self, $mr) {
   return $self->merge_requests->{ $self->_key_for_mr($mr) };
+}
+
+# return a list of MRs that we have, but that aren't in $step
+sub mrs_not_in ($self, $step) {
+  my %have_in_step =  map {; $self->_key_for_mr($_) => 1 } $step->merge_requests;
+
+  my @missing = map  {; $self->merge_requests->{$_} }
+                grep {; ! $have_in_step{$_} }
+                keys $self->merge_requests->%*;
+
+  return @missing;
 }
 
 1;
