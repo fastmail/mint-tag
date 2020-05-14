@@ -8,6 +8,7 @@ use Types::Standard qw(Str ArrayRef Maybe);
 
 requires 'obtain_clone_url';    # get_clone_url was confusing...
 requires 'get_mrs_for_label';
+requires 'get_mr';
 requires 'ua';
 
 has name => (

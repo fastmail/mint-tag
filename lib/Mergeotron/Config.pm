@@ -118,6 +118,14 @@ sub remote_named ($self, $name) {
   die "No configuration for remote named $name!\n"
 }
 
+sub remote_for_url ($self, $clone_url) {
+  my $remote = $self->_remotes_by_url->{$clone_url};
+  return $remote if $remote;
+
+  # Not dying here, I think.
+  return;
+}
+
 sub _assemble_remotes ($class, $remote_config) {
   my %remotes;
 

@@ -80,18 +80,29 @@ sub get_mrs_for_label ($self, $label, $trusted_org_name = undef) {
       next;
     }
 
-    push @prs, Mergeotron::MergeRequest->new({
-      remote     => $self,
-      number     => $number,
-      author     => $pr->{user}->{login},
-      title      => $pr->{title},
-      fetch_spec => $self->name,
-      refname    => "pull/$number/head",
-      sha        => $head->{sha},
-    });
+    push @prs, $self->_mr_from_raw($pr);
   }
 
   return @prs;
+}
+
+sub get_mr ($self, $number) {
+  my $pr = $self->http_get($self->uri_for("/pulls/$number"));
+  return $self->_mr_from_raw($pr);
+}
+
+sub _mr_from_raw ($self, $raw) {
+  my $number = $raw->{number};
+
+  return Mergeotron::MergeRequest->new({
+    remote     => $self,
+    number     => $number,
+    author     => $raw->{user}->{login},
+    title      => $raw->{title},
+    fetch_spec => $self->name,
+    refname    => "pull/$number/head",
+    sha        => $raw->{head}->{sha},
+  });
 }
 
 sub obtain_clone_url ($self) {

@@ -174,7 +174,7 @@ sub output_step ($self, $step, $counter_ref) {
       }
     }
 
-    my $mr_desc = sprintf("!%d, %s (%s):\n    %s - %s",
+    my $mr_desc = sprintf("!%d, %s (%s)\n    %s - %s",
       $mr->number,
       $mr->short_sha,
       $delta,
@@ -194,8 +194,22 @@ sub output_step ($self, $step, $counter_ref) {
     }
 
     for my $gone (@missing) {
-      my $short = substr $gone->{sha}, 0, 8;
-      say "!$gone->{number} (was $short)";
+      # Try to get some details about them, if we can.
+      my $short_sha = substr $gone->{sha}, 0, 8;
+      my $mr_desc = "!$gone->{number} (was $short_sha; unable to get more data)";
+
+      if (my $remote = $gone->{remote}) {
+        my $mr = $remote->get_mr($gone->{number});
+        $mr_desc = sprintf("!%d, %s (status: %s)\n    %s - %s",
+          $mr->number,
+          $mr->short_sha,
+          $mr->state,
+          $mr->author,
+          $mr->title,
+        );
+      }
+
+      say "-: $mr_desc";
     }
   }
 

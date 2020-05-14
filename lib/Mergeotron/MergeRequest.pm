@@ -79,6 +79,11 @@ has merge_base => (
   writer => 'set_merge_base',
 );
 
+has state => (
+  is => 'ro',
+  isa => Str,
+);
+
 sub as_fetch_args ($self) {
   return ($self->fetch_spec, $self->refname);
 }

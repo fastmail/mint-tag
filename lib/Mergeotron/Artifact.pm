@@ -136,6 +136,7 @@ has merge_requests => (
         $mrs{$key} = {
           %$mr,
           step_name => $step->{name},
+          remote    => $self->config->remote_for_url($step->{remote}),
         },
       }
     }
