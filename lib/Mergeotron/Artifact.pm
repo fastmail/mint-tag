@@ -86,18 +86,15 @@ sub as_toml ($self) {
     push @lines, '[[build_steps]]';
     push @lines, sprintf('name = "%s"', $step->{name});
     push @lines, sprintf('remote = "%s"', $step->{remote});
-    push @lines, 'merge_requests = [';
 
     for my $mr ($step->{merge_requests}->@*) {
-      push @lines, sprintf(
-        '  { number="%s", sha="%s", merge_base="%s" },',
-        $mr->{number},
-        $mr->{sha},
-        $mr->{merge_base},
-      );
+      push @lines, '';
+      push @lines, sprintf('  [[build_steps.merge_requests]]');
+      push @lines, sprintf('  number = "%s"',     $mr->{number});
+      push @lines, sprintf('  sha = "%s"',        $mr->{sha});
+      push @lines, sprintf('  merge_base = "%s"', $mr->{merge_base});
     }
 
-    push @lines, ']';
     push @lines, '';
   }
 
