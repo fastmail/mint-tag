@@ -53,7 +53,8 @@ sub confirm_plan ($self) {
 
   say '';
 
-  my $i = 1;
+  my $step_counter = 1;
+  my $mr_counter = 1;
 
   my $total_mr_count = sum0 map {; scalar $_->merge_requests } $self->config->steps;
   unless ($total_mr_count > 0) {
@@ -63,30 +64,12 @@ sub confirm_plan ($self) {
   }
 
   for my $step ($self->config->steps) {
-    my $header = "Step $i: " . $step->name;
-    $i++;
+    my $header = "Step $step_counter: " . $step->name;
+    $step_counter++;
     say $header;
     say '-' x length $header;
 
-    unless ($step->merge_requests) {
-      printf("Nothing to do! No merge requests labeled %s found on remote %s\n",
-        $step->label,
-        $step->remote->name,
-      );
-      next;
-    }
-
-    say "We're going to include the following merge requests:\n";
-
-    for my $mr ($step->merge_requests) {
-      say "* " . $mr->oneline_desc;
-    }
-
-    if (my $remote = $step->push_tag_to) {
-      say "\nWe'd tag that and push it tag to the remote named " . $remote->name . '.';
-    }
-
-    say "";
+    $self->output_step($step, \$mr_counter);
   }
 
   print "Continue? yes/no/help\n> ";
@@ -155,6 +138,30 @@ sub maybe_set_last_build ($self) {
   }
 
   $self->_set_last_build($build);
+}
+
+sub output_step ($self, $step, $counter_ref) {
+  unless ($step->merge_requests) {
+    printf("Nothing to do! No merge requests labeled %s found on remote %s\n",
+      $step->label,
+      $step->remote->name,
+    );
+
+    return;
+  }
+
+  say "We're going to include the following merge requests:\n";
+
+  for my $mr ($step->merge_requests) {
+    my $i = $$counter_ref++;
+    say "$i: " . $mr->oneline_desc;
+  }
+
+  if (my $remote = $step->push_tag_to) {
+    say "\nWe'd tag that and push it tag to the remote named " . $remote->name . '.';
+  }
+
+  say "";
 }
 
 1;
