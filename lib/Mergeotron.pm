@@ -4,6 +4,7 @@ use Moo;
 use experimental qw(postderef signatures);
 
 use Mergeotron::Approver;
+use Mergeotron::Artifact;
 use Mergeotron::Config;
 use Mergeotron::Logger '$Logger';
 use Mergeotron::Util qw(run_git re_for_tag);
@@ -199,38 +200,22 @@ sub maybe_tag_commit ($self, $this_step) {
   my $short = substr $sha, 0, 8;
   $tag .= "-g$short";
 
-  # We want to include some metadata in the tag: for every MR we included,
-  # the remote, its numbers, and its sha. We'll spew it as TOML so it's easy
-  # to parse later. (But...the TOML generation perl library kinda stinks, so
-  # I'ma construct it manually. It's fine. -- michael, 2020-05-13)
-  my @lines = (
-    sprintf('mergeotron-tagged commit from step named %s', $this_step->name),
-    '',
-    '[meta]',
-    sprintf('annotation_version = %d', $ANNOTATION_VERSION),
-    sprintf('base = "%s"', $self->merge_base),
-    "",
+  my $artifact = Mergeotron::Artifact->new({
+    config    => $self->config,
+    base      => $self->merge_base,
+    tag_name  => $tag,
+    this_step => $this_step,
+  });
+
+  my $msg = sprintf(
+    "mergeotron-tagged commit from step named %s\n\n%s",
+    $this_step->name,
+    $artifact->as_toml,
   );
-
-  for my $step ($self->config->steps) {
-    push @lines, '[[build_steps]]';
-    push @lines, sprintf('name = "%s"', $step->name);
-    push @lines, sprintf('remote = "%s"', $step->remote->clone_url);
-    push @lines, 'merge_requests = [';
-
-    for my $mr ($step->merge_requests) {
-      push @lines, sprintf('  { number="%s", sha="%s" },', $mr->number, $mr->sha);
-    }
-
-    push @lines, ']';
-    push @lines, '';
-
-    last if $step eq $this_step;
-  }
 
   # spew the message to a file
   my $path = Path::Tiny->tempfile();
-  $path->spew_utf8(join "\n", @lines);
+  $path->spew_utf8($msg);
 
   $Logger->log("tagging $sha as $tag");
   run_git('tag', '-F', $path->absolute, $tag);
