@@ -99,24 +99,26 @@ sub enter_interactive_mode ($self) {
 
     last if $input =~ /^no?/ || $input =~ /^q(uit)?/;
 
+    return $self->confirm_plan if $input eq 'plan';
+
     if ($input =~ /^y(es)?/) {
       say "Great...here we go!\n";
       return;
     }
 
-    if ($input eq 'restart') {
-      return $self->confirm_plan;
-    }
-
     if ($input eq 'help') {
-      say "yes       go ahead, merge away!";
-      say "no        that doesn't look right; abort!";
-      say "restart   print the whole plan again";
+      say "yes        go ahead, merge away!";
+      say "no         that doesn't look right; abort!";
+      say "plan       print the whole plan again";
 
-      if ($self->has_last_build) {
-        say "diff #    get details on the merge request numbered #";
-        say "log  #    show oneline log between old and new positions for entry #";
-      }
+      say "log #      show oneline log for entry #, starting from last build"
+        if $self->has_last_build;
+
+      say "diff #     show diff for entry #, starting from last build"
+        if $self->has_last_build;
+
+      say "logall #   show oneline log for entry #, starting from its merge base";
+      say "diffall #  show diff for entry #, starting from its merge base";
 
       print "> ";
       next;
@@ -140,20 +142,22 @@ sub enter_interactive_mode ($self) {
       next;
     }
 
-    if ($action eq 'diff') {
-      $self->print_diff_for_mr($num);
-      print $header;
+    state $ACTIONS = {
+      diff    => \&print_diff_for_mr,
+      log     => \&print_log_for_mr,
+      logall  => \&print_total_log_for_mr,
+      diffall => \&print_total_diff_for_mr,
+    };
+
+    my $sub = $ACTIONS->{$action};
+
+    unless ($sub) {
+      print $does_not_compute;
       next;
     }
 
-    if ($action eq 'log') {
-      $self->print_log_for_mr($num);
-      print $header;
-      next;
-    }
-
-    print $does_not_compute;
-    next;
+    $sub->($self, $num);
+    print $header;
   }
 
   # EOF; assume abort
@@ -296,32 +300,47 @@ sub output_step ($self, $step, $counter_ref) {
   say "";
 }
 
-sub print_diff_for_mr ($self, $idx) {
+sub _run_git_for_mr ($self, $idx, $code) {
   my ($old, $mr) = $self->data_for_mr_index($idx)->@*;
 
-  my $out = run_git('diff', '--color', $old->{sha}, $mr->sha);
+  my $out = $code->($old, $mr);
 
   if (!$out) {
     say "No changes detected since last build!\n";
     return;
   }
 
-  print $out;
-  say "\n";
+  print "$out\n\n";
+}
+
+sub print_diff_for_mr ($self, $idx) {
+  return $self->_run_git_for_mr($idx, sub ($old, $mr) {
+    run_git('diff', '--color', $old->{sha}, $mr->sha);
+  });
+}
+
+sub print_total_diff_for_mr ($self, $idx) {
+  my (undef, $mr) = $self->data_for_mr_index($idx)->@*;
+  my $out = run_git('diff', '--color', $mr->merge_base, $mr->sha);
+  print "$out\n\n";
 }
 
 sub print_log_for_mr ($self, $idx) {
-  my ($old, $mr) = $self->data_for_mr_index($idx)->@*;
+  return $self->_run_git_for_mr($idx, sub ($old, $mr) {
+    run_git('log', '--oneline', join(q{..}, $old->{sha}, $mr->sha));
+  });
+}
 
-  my $out = run_git('log', '--oneline', join(q{..}, $old->{sha}, $mr->sha));
+sub print_total_log_for_mr ($self, $idx) {
+  my (undef, $mr) = $self->data_for_mr_index($idx)->@*;
 
-  if (!$out) {
-    say "No changes detected since last build!\n";
-    return;
-  }
+  my $out = run_git(
+    'log',
+    '--oneline',
+    join(q{..}, $mr->merge_base, $mr->sha),
+  );
 
-  print $out;
-  say "\n";
+  print "$out\n\n";
 }
 
 1;
