@@ -92,9 +92,10 @@ sub enter_interactive_mode ($self) {
   # Rik will say I should use CLI_M8 for this; maybe he's right.
   print $header;
 
-  while (my $input = lc <STDIN>) {
+  while (my $input = <STDIN>) {
     chomp($input);
     $input =~ s/^\s*|\s*$//g;
+    $input = lc $input;
 
     last if $input =~ /^no?/ || $input =~ /^q(uit)?/;
 
@@ -103,9 +104,14 @@ sub enter_interactive_mode ($self) {
       return;
     }
 
+    if ($input eq 'restart') {
+      return $self->confirm_plan;
+    }
+
     if ($input eq 'help') {
       say "yes       go ahead, merge away!";
       say "no        that doesn't look right; abort!";
+      say "restart   print the whole plan again";
 
       if ($self->has_last_build) {
         say "diff #    get details on the merge request numbered #";
@@ -228,10 +234,10 @@ sub output_step ($self, $step, $counter_ref) {
         my $short = substr $old->{sha}, 0, 8;
 
         $delta =
-            $mr->sha eq $old->{sha}           ? 'unchanged'
-          : $mr->patch_id eq $old->{patch_id} ? "was $short, rebased but unchanged"
-          : $mr->merge_base ne $old->{base}   ? "was $short, rebased and altered"
-          :                                     "was $short";
+            $mr->sha eq $old->{sha}               ? 'unchanged'
+          : $mr->patch_id eq $old->{patch_id}     ? "was $short, rebased but unchanged"
+          : $mr->merge_base ne $old->{merge_base} ? "was $short, rebased and altered"
+          :                                         "was $short";
 
         if ($old->{step_name} ne $step->name) {
           $delta .= ", was in step named $old->{step_name}";
@@ -251,7 +257,7 @@ sub output_step ($self, $step, $counter_ref) {
 
     my $i = $$counter_ref++;
     say "$i: $mr_desc";
-    $self->mrs_by_index->{$i} = { old => $old, new => $mr };
+    $self->mrs_by_index->{$i} = [ $old,  $mr ];
   }
 
   # Find anything that was in the last build, but has now disappeared
@@ -266,6 +272,8 @@ sub output_step ($self, $step, $counter_ref) {
       my $short_sha = substr $gone->{sha}, 0, 8;
       my $mr_desc = "!$gone->{number} (was $short_sha; unable to get more data)";
 
+      # NOTE: this is inefficient in the face of 'restart', because it'll
+      # refetch every time. I think that's fine for right now.
       if (my $remote = $gone->{remote}) {
         my $mr = $remote->get_mr($gone->{number});
         $mr_desc = sprintf("!%d, %s (status: %s)\n    %s - %s",
@@ -289,11 +297,31 @@ sub output_step ($self, $step, $counter_ref) {
 }
 
 sub print_diff_for_mr ($self, $idx) {
-  say "...diff goes here";
+  my ($old, $mr) = $self->data_for_mr_index($idx)->@*;
+
+  my $out = run_git('diff', '--color', $old->{sha}, $mr->sha);
+
+  if (!$out) {
+    say "No changes detected since last build!\n";
+    return;
+  }
+
+  print $out;
+  say "\n";
 }
 
 sub print_log_for_mr ($self, $idx) {
-  say "...log goes here";
+  my ($old, $mr) = $self->data_for_mr_index($idx)->@*;
+
+  my $out = run_git('log', '--oneline', join(q{..}, $old->{sha}, $mr->sha));
+
+  if (!$out) {
+    say "No changes detected since last build!\n";
+    return;
+  }
+
+  print $out;
+  say "\n";
 }
 
 1;
