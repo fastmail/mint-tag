@@ -18,6 +18,10 @@ has config => (
   isa => InstanceOf['Mergeotron::Config'],
 );
 
+around BUILDARGS => sub ($orig, $self, $config) {
+  return $self->$orig({ config => $config });
+};
+
 has last_build => (
   is => 'ro',
   isa => Maybe[InstanceOf['Mergeotron::Artifact']],
@@ -25,9 +29,14 @@ has last_build => (
   writer => '_set_last_build',
 );
 
-around BUILDARGS => sub ($orig, $self, $config) {
-  return $self->$orig({ config => $config });
-};
+has mrs_by_index => (
+  is => 'ro',
+  lazy => 1,
+  default => sub { {} },
+);
+
+sub is_valid_mr_index ($self, $idx) { exists $self->mrs_by_index->{$idx} }
+sub data_for_mr_index ($self, $idx) { $self->mrs_by_index->{$idx} }
 
 sub confirm_plan ($self) {
   my $head = run_git('rev-parse', 'HEAD');
@@ -72,25 +81,78 @@ sub confirm_plan ($self) {
     $self->output_step($step, \$mr_counter);
   }
 
-  print "Continue? yes/no/help\n> ";
+  # will either return or exit
+  $self->enter_interactive_mode;
+}
 
-  while (my $input = <STDIN>) {
+sub enter_interactive_mode ($self) {
+  my $header = "Continue with merge? yes/no/help\n> ";
+  my $does_not_compute = "Sorry, I didn't understand that! Try again?\n> ";
+
+  # Rik will say I should use CLI_M8 for this; maybe he's right.
+  print $header;
+
+  while (my $input = lc <STDIN>) {
     chomp($input);
+    $input =~ s/^\s*|\s*$//g;
 
-    if ($input =~ /^y(es)?/i) {
+    last if $input =~ /^no?/ || $input =~ /^q(uit)?/;
+
+    if ($input =~ /^y(es)?/) {
       say "Great...here we go!\n";
       return;
     }
 
-    if ($input =~ /^no?/i || $input eq 'q') {
-      say "Alright then...see you next time!";
-      exit 1;
+    if ($input eq 'help') {
+      say "yes       go ahead, merge away!";
+      say "no        that doesn't look right; abort!";
+
+      if ($self->has_last_build) {
+        say "diff #    get details on the merge request numbered #";
+        say "log  #    show oneline log between old and new positions for entry #";
+      }
+
+      print "> ";
+      next;
     }
 
-    print "Sorry, I didn't understand that! Try again? ";
+    # We can't meaningfully provide log/diff if we don't have base.
+    unless ($self->has_last_build) {
+      print $does_not_compute;
+      next;
+    }
+
+    my ($action, $num, @rest) = split /\s+/, $input;
+
+    if (@rest || ! $num) {
+      print $does_not_compute;
+      next;
+    }
+
+    unless ($self->is_valid_mr_index($num)) {
+      print "Hmm, you said you wanted MR #$num, but that doesn't seem valid.\n> ";
+      next;
+    }
+
+    if ($action eq 'diff') {
+      $self->print_diff_for_mr($num);
+      print $header;
+      next;
+    }
+
+    if ($action eq 'log') {
+      $self->print_log_for_mr($num);
+      print $header;
+      next;
+    }
+
+    print $does_not_compute;
+    next;
   }
 
-  die "wait, how did you get here?";
+  # EOF; assume abort
+  say "Alright then...see you next time!";
+  exit 1;
 }
 
 # return the most recent tag matching this config's *last* defined step.
@@ -158,10 +220,11 @@ sub output_step ($self, $step, $counter_ref) {
 
   for my $mr ($step->merge_requests) {
     my $delta = 'no previous build';
+    my $old;
 
     if (my $artifact = $self->last_build) {
       if ($artifact->contains_mr($mr)) {
-        my $old = $artifact->data_for_mr($mr);
+        $old = $artifact->data_for_mr($mr);
         my $short = substr $old->{sha}, 0, 8;
 
         $delta =
@@ -188,6 +251,7 @@ sub output_step ($self, $step, $counter_ref) {
 
     my $i = $$counter_ref++;
     say "$i: $mr_desc";
+    $self->mrs_by_index->{$i} = { old => $old, new => $mr };
   }
 
   # Find anything that was in the last build, but has now disappeared
@@ -222,6 +286,14 @@ sub output_step ($self, $step, $counter_ref) {
   }
 
   say "";
+}
+
+sub print_diff_for_mr ($self, $idx) {
+  say "...diff goes here";
+}
+
+sub print_log_for_mr ($self, $idx) {
+  say "...log goes here";
 }
 
 1;
