@@ -1,5 +1,5 @@
 use v5.20;
-package MintTag::Artifact;
+package App::MintTag::Artifact;
 use Moo;
 use experimental qw(postderef signatures);
 
@@ -7,12 +7,12 @@ use TOML::Parser;
 use Try::Tiny;
 use Types::Standard qw(InstanceOf Int Maybe Str);
 
-use MintTag::Logger '$Logger';
+use App::MintTag::Logger '$Logger';
 
 has config => (
   is => 'ro',
   required => 1,
-  isa => InstanceOf['MintTag::Config'],
+  isa => InstanceOf['App::MintTag::Config'],
 );
 
 has base => (
@@ -37,7 +37,7 @@ has annotation_version => (
 # message
 has this_step => (
   is => 'ro',
-  isa => Maybe[InstanceOf['MintTag::BuildStep']],
+  isa => Maybe[InstanceOf['App::MintTag::BuildStep']],
   predicate => 'has_this_step',
 );
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 use v5.20;
 use lib 'lib';
-use MintTag;
+use App::MintTag;
 
-use MintTag::Logger '$Logger' => { init => {
+use App::MintTag::Logger '$Logger' => { init => {
   ident     => 'mint-tag',
   facility  => 'news',
   to_stdout => 1,
@@ -22,4 +22,4 @@ my ($opt, $usage) = describe_options(
 
 print($usage->text), exit if $opt->help;
 
-MintTag->from_config_file($opt->config)->build($opt->auto);
+App::MintTag->from_config_file($opt->config)->build($opt->auto);

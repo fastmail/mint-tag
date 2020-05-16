@@ -1,5 +1,5 @@
 use v5.20;
-package MintTag::Remote;
+package App::MintTag::Remote;
 use Moo::Role;
 use experimental qw(signatures postderef);
 

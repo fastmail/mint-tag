@@ -1,5 +1,5 @@
 use v5.20;
-package MintTag::MergeRequest;
+package App::MintTag::MergeRequest;
 # ABSTRACT: a tiny class to represent merge requests from different places
 
 use Moo;
@@ -9,7 +9,7 @@ use Types::Standard qw(Int Str ConsumerOf);
 
 has remote => (
   is => 'ro',
-  isa => ConsumerOf["MintTag::Remote"],
+  isa => ConsumerOf["App::MintTag::Remote"],
   required => 1,
   handles => {
     remote_name => 'name',

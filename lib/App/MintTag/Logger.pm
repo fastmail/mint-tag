@@ -1,6 +1,6 @@
 use v5.20;
 use warnings;
-package MintTag::Logger;
+package App::MintTag::Logger;
 use parent 'Log::Dispatchouli::Global';
 
 use Log::Dispatchouli 2.019; # ->enable_std{err,out}
@@ -10,7 +10,7 @@ sub logger_globref {
   \*Logger;
 }
 
-sub default_logger_class { 'MintTag::Logger::_Logger' }
+sub default_logger_class { 'App::MintTag::Logger::_Logger' }
 
 sub default_logger_args {
   return {
@@ -21,7 +21,7 @@ sub default_logger_args {
 }
 
 {
-  package MintTag::Logger::_Logger;
+  package App::MintTag::Logger::_Logger;
   use parent 'Log::Dispatchouli';
 
   sub env_prefix { 'MINTTAG_LOG' }

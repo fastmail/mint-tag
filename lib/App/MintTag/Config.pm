@@ -1,15 +1,15 @@
 use v5.20;
 use warnings;
-package MintTag::Config;
+package App::MintTag::Config;
 use Moo;
 use experimental qw(signatures postderef);
 
 use TOML::Parser;
 use Types::Standard qw(ArrayRef Bool HashRef Str ConsumerOf InstanceOf);
 
-use MintTag::BuildStep;
-use MintTag::Remote::Github;
-use MintTag::Remote::GitLab;
+use App::MintTag::BuildStep;
+use App::MintTag::Remote::Github;
+use App::MintTag::Remote::GitLab;
 
 sub from_file ($class, $file) {
   my $config = TOML::Parser->new->parse_file($file);
@@ -95,7 +95,7 @@ has should_clone => (
 
 has remotes => (
   is => 'ro',
-  isa => HashRef[ConsumerOf["MintTag::Remote"]],
+  isa => HashRef[ConsumerOf["App::MintTag::Remote"]],
   required => 1,
 );
 
@@ -145,7 +145,7 @@ sub _assemble_remotes ($class, $remote_config) {
 
 has _steps => (
   is => 'ro',
-  isa => ArrayRef[InstanceOf["MintTag::BuildStep"]],
+  isa => ArrayRef[InstanceOf["App::MintTag::BuildStep"]],
   required => 1,
   init_arg => 'steps',
 );
@@ -166,7 +166,7 @@ sub _assemble_steps ($class, $step_config, $remotes) {
       die "No matching remote found for $tag_remote!\n" unless $tag_remote;
     }
 
-    push @steps, MintTag::BuildStep->new({
+    push @steps, App::MintTag::BuildStep->new({
       remote      => $remote,
       push_tag_to => $tag_remote,
       %$step,

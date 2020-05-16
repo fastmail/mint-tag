@@ -1,9 +1,9 @@
-package MintTag::Util;
+package App::MintTag::Util;
 use v5.20;
 use experimental qw(postderef signatures);
 
 use IPC::Run3 qw(run3);
-use MintTag::Logger '$Logger';
+use App::MintTag::Logger '$Logger';
 use Process::Status;
 use Sub::Exporter -setup => [ qw(
   run_git

@@ -1,5 +1,5 @@
 use v5.20;
-package MintTag::Approver;
+package App::MintTag::Approver;
 use Moo;
 use experimental qw(postderef signatures);
 
@@ -8,14 +8,14 @@ use Term::ANSIColor qw(color colored);
 use Try::Tiny;
 use Types::Standard qw(HashRef InstanceOf Maybe);
 
-use MintTag::Artifact;
-use MintTag::Logger '$Logger';
-use MintTag::Util qw(run_git re_for_tag);
+use App::MintTag::Artifact;
+use App::MintTag::Logger '$Logger';
+use App::MintTag::Util qw(run_git re_for_tag);
 
 has config => (
   is => 'ro',
   required => 1,
-  isa => InstanceOf['MintTag::Config'],
+  isa => InstanceOf['App::MintTag::Config'],
 );
 
 around BUILDARGS => sub ($orig, $self, $config) {
@@ -24,7 +24,7 @@ around BUILDARGS => sub ($orig, $self, $config) {
 
 has last_build => (
   is => 'ro',
-  isa => Maybe[InstanceOf['MintTag::Artifact']],
+  isa => Maybe[InstanceOf['App::MintTag::Artifact']],
   predicate => 'has_last_build',
   writer => '_set_last_build',
 );
@@ -198,14 +198,14 @@ sub maybe_set_last_build ($self) {
   # slice off header and blank line
   $body =~ s/\A.*?\n\n//m;
 
-  my $build = MintTag::Artifact->from_toml($self->config, $body);
+  my $build = App::MintTag::Artifact->from_toml($self->config, $body);
   return unless $build;
 
-  if ($build->annotation_version != $MintTag::ANNOTATION_VERSION) {
+  if ($build->annotation_version != $App::MintTag::ANNOTATION_VERSION) {
     $Logger->log([
       "ignoring previous build; built with annotation version %s, current is %s",
       $build->annotation_version,
-      $MintTag::ANNOTATION_VERSION,
+      $App::MintTag::ANNOTATION_VERSION,
     ]);
 
     return;

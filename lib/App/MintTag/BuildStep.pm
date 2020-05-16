@@ -1,12 +1,12 @@
 use v5.20;
-package MintTag::BuildStep;
+package App::MintTag::BuildStep;
 use Moo;
 use experimental qw(signatures postderef);
 
 use Types::Standard qw(Bool Str ConsumerOf Maybe ArrayRef InstanceOf);
 
-use MintTag::Logger '$Logger';
-use MintTag::Util qw(run_git);
+use App::MintTag::Logger '$Logger';
+use App::MintTag::Util qw(run_git);
 
 has name => (
   is => 'ro',
@@ -16,7 +16,7 @@ has name => (
 
 has remote => (
   is => 'ro',
-  isa => ConsumerOf["MintTag::Remote"],
+  isa => ConsumerOf["App::MintTag::Remote"],
   required => 1,
   handles => {
     remote_name => 'name',
@@ -43,7 +43,7 @@ has tag_prefix => (
 
 has push_tag_to => (
   is => 'ro',
-  isa => Maybe[ConsumerOf["MintTag::Remote"]],
+  isa => Maybe[ConsumerOf["App::MintTag::Remote"]],
 );
 
 sub BUILD ($self, $arg) {
@@ -56,7 +56,7 @@ sub BUILD ($self, $arg) {
 has _merge_requests => (
   is => 'ro',
   init_arg => undef,
-  isa => ArrayRef[InstanceOf["MintTag::MergeRequest"]],
+  isa => ArrayRef[InstanceOf["App::MintTag::MergeRequest"]],
   writer => 'set_merge_requests'
 );
 
