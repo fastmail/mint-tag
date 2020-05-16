@@ -1,5 +1,5 @@
 use v5.20;
-package Mergeotron::Remote;
+package MintTag::Remote;
 use Moo::Role;
 use experimental qw(signatures postderef);
 

@@ -1,5 +1,5 @@
 use v5.20;
-package Mergeotron::Artifact;
+package MintTag::Artifact;
 use Moo;
 use experimental qw(postderef signatures);
 
@@ -7,12 +7,12 @@ use TOML::Parser;
 use Try::Tiny;
 use Types::Standard qw(InstanceOf Int Maybe Str);
 
-use Mergeotron::Logger '$Logger';
+use MintTag::Logger '$Logger';
 
 has config => (
   is => 'ro',
   required => 1,
-  isa => InstanceOf['Mergeotron::Config'],
+  isa => InstanceOf['MintTag::Config'],
 );
 
 has base => (
@@ -33,11 +33,11 @@ has annotation_version => (
   isa => Int,
 );
 
-# used when building from a mergeotron object, not when generating from tag
+# used when building from a minttag object, not when generating from tag
 # message
 has this_step => (
   is => 'ro',
-  isa => Maybe[InstanceOf['Mergeotron::BuildStep']],
+  isa => Maybe[InstanceOf['MintTag::BuildStep']],
   predicate => 'has_this_step',
 );
 

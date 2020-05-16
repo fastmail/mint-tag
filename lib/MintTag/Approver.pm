@@ -1,5 +1,5 @@
 use v5.20;
-package Mergeotron::Approver;
+package MintTag::Approver;
 use Moo;
 use experimental qw(postderef signatures);
 
@@ -8,14 +8,14 @@ use Term::ANSIColor qw(color colored);
 use Try::Tiny;
 use Types::Standard qw(HashRef InstanceOf Maybe);
 
-use Mergeotron::Artifact;
-use Mergeotron::Logger '$Logger';
-use Mergeotron::Util qw(run_git re_for_tag);
+use MintTag::Artifact;
+use MintTag::Logger '$Logger';
+use MintTag::Util qw(run_git re_for_tag);
 
 has config => (
   is => 'ro',
   required => 1,
-  isa => InstanceOf['Mergeotron::Config'],
+  isa => InstanceOf['MintTag::Config'],
 );
 
 around BUILDARGS => sub ($orig, $self, $config) {
@@ -24,7 +24,7 @@ around BUILDARGS => sub ($orig, $self, $config) {
 
 has last_build => (
   is => 'ro',
-  isa => Maybe[InstanceOf['Mergeotron::Artifact']],
+  isa => Maybe[InstanceOf['MintTag::Artifact']],
   predicate => 'has_last_build',
   writer => '_set_last_build',
 );
@@ -190,7 +190,7 @@ sub maybe_set_last_build ($self) {
 
   my $body = run_git(qw(tag -l --format=%(contents)), $tagname);
 
-  unless ($body =~ /\Amergeotron-tagged commit/) {
+  unless ($body =~ /\Amint-tag generated commit/) {
     $Logger->log("got weird commit message for $tagname; ignoring");
     return;
   }
@@ -198,14 +198,14 @@ sub maybe_set_last_build ($self) {
   # slice off header and blank line
   $body =~ s/\A.*?\n\n//m;
 
-  my $build = Mergeotron::Artifact->from_toml($self->config, $body);
+  my $build = MintTag::Artifact->from_toml($self->config, $body);
   return unless $build;
 
-  if ($build->annotation_version != $Mergeotron::ANNOTATION_VERSION) {
+  if ($build->annotation_version != $MintTag::ANNOTATION_VERSION) {
     $Logger->log([
       "ignoring previous build; built with annotation version %s, current is %s",
       $build->annotation_version,
-      $Mergeotron::ANNOTATION_VERSION,
+      $MintTag::ANNOTATION_VERSION,
     ]);
 
     return;

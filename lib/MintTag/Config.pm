@@ -1,15 +1,15 @@
 use v5.20;
 use warnings;
-package Mergeotron::Config;
+package MintTag::Config;
 use Moo;
 use experimental qw(signatures postderef);
 
 use TOML::Parser;
 use Types::Standard qw(ArrayRef Bool HashRef Str ConsumerOf InstanceOf);
 
-use Mergeotron::BuildStep;
-use Mergeotron::Remote::Github;
-use Mergeotron::Remote::GitLab;
+use MintTag::BuildStep;
+use MintTag::Remote::Github;
+use MintTag::Remote::GitLab;
 
 sub from_file ($class, $file) {
   my $config = TOML::Parser->new->parse_file($file);
@@ -40,7 +40,7 @@ has _cfg => (
 has committer_name => (
   is => 'ro',
   isa => Str,
-  default => 'Mergeotron',
+  default => 'MintTag',
 );
 
 has committer_email => (
@@ -95,7 +95,7 @@ has should_clone => (
 
 has remotes => (
   is => 'ro',
-  isa => HashRef[ConsumerOf["Mergeotron::Remote"]],
+  isa => HashRef[ConsumerOf["MintTag::Remote"]],
   required => 1,
 );
 
@@ -145,7 +145,7 @@ sub _assemble_remotes ($class, $remote_config) {
 
 has _steps => (
   is => 'ro',
-  isa => ArrayRef[InstanceOf["Mergeotron::BuildStep"]],
+  isa => ArrayRef[InstanceOf["MintTag::BuildStep"]],
   required => 1,
   init_arg => 'steps',
 );
@@ -166,7 +166,7 @@ sub _assemble_steps ($class, $step_config, $remotes) {
       die "No matching remote found for $tag_remote!\n" unless $tag_remote;
     }
 
-    push @steps, Mergeotron::BuildStep->new({
+    push @steps, MintTag::BuildStep->new({
       remote      => $remote,
       push_tag_to => $tag_remote,
       %$step,

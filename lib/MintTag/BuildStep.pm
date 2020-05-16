@@ -1,12 +1,12 @@
 use v5.20;
-package Mergeotron::BuildStep;
+package MintTag::BuildStep;
 use Moo;
 use experimental qw(signatures postderef);
 
 use Types::Standard qw(Bool Str ConsumerOf Maybe ArrayRef InstanceOf);
 
-use Mergeotron::Logger '$Logger';
-use Mergeotron::Util qw(run_git);
+use MintTag::Logger '$Logger';
+use MintTag::Util qw(run_git);
 
 has name => (
   is => 'ro',
@@ -16,7 +16,7 @@ has name => (
 
 has remote => (
   is => 'ro',
-  isa => ConsumerOf["Mergeotron::Remote"],
+  isa => ConsumerOf["MintTag::Remote"],
   required => 1,
   handles => {
     remote_name => 'name',
@@ -43,7 +43,7 @@ has tag_prefix => (
 
 has push_tag_to => (
   is => 'ro',
-  isa => Maybe[ConsumerOf["Mergeotron::Remote"]],
+  isa => Maybe[ConsumerOf["MintTag::Remote"]],
 );
 
 sub BUILD ($self, $arg) {
@@ -56,7 +56,7 @@ sub BUILD ($self, $arg) {
 has _merge_requests => (
   is => 'ro',
   init_arg => undef,
-  isa => ArrayRef[InstanceOf["Mergeotron::MergeRequest"]],
+  isa => ArrayRef[InstanceOf["MintTag::MergeRequest"]],
   writer => 'set_merge_requests'
 );
 

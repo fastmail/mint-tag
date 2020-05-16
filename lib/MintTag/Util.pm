@@ -1,9 +1,9 @@
-package Mergeotron::Util;
+package MintTag::Util;
 use v5.20;
 use experimental qw(postderef signatures);
 
 use IPC::Run3 qw(run3);
-use Mergeotron::Logger '$Logger';
+use MintTag::Logger '$Logger';
 use Process::Status;
 use Sub::Exporter -setup => [ qw(
   run_git

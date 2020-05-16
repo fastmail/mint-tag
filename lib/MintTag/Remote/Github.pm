@@ -1,15 +1,15 @@
 use v5.20;
-package Mergeotron::Remote::Github;
+package MintTag::Remote::Github;
 use Moo;
 use experimental qw(postderef signatures);
 
-with 'Mergeotron::Remote';
+with 'MintTag::Remote';
 
 use LWP::UserAgent;
 use URI;
 
-use Mergeotron::Logger '$Logger';
-use Mergeotron::MergeRequest;
+use MintTag::Logger '$Logger';
+use MintTag::MergeRequest;
 
 sub ua;
 has ua => (
@@ -94,7 +94,7 @@ sub get_mr ($self, $number) {
 sub _mr_from_raw ($self, $raw) {
   my $number = $raw->{number};
 
-  return Mergeotron::MergeRequest->new({
+  return MintTag::MergeRequest->new({
     remote     => $self,
     number     => $number,
     author     => $raw->{user}->{login},

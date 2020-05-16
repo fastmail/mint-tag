@@ -1,13 +1,13 @@
 use v5.20;
-package Mergeotron;
+package MintTag;
 use Moo;
 use experimental qw(postderef signatures);
 
-use Mergeotron::Approver;
-use Mergeotron::Artifact;
-use Mergeotron::Config;
-use Mergeotron::Logger '$Logger';
-use Mergeotron::Util qw(run_git re_for_tag);
+use MintTag::Approver;
+use MintTag::Artifact;
+use MintTag::Config;
+use MintTag::Logger '$Logger';
+use MintTag::Util qw(run_git re_for_tag);
 
 use Data::Dumper::Concise;
 use DateTime;
@@ -18,7 +18,7 @@ use Types::Standard qw(Bool InstanceOf);
 
 has config => (
   is => 'ro',
-  isa => InstanceOf['Mergeotron::Config'],
+  isa => InstanceOf['MintTag::Config'],
   required => 1,
   handles => [qw(
     all_remotes
@@ -43,7 +43,7 @@ our $ANNOTATION_VERSION = 1;
 
 sub from_config_file ($class, $config_file) {
   return $class->new({
-    config => Mergeotron::Config->from_file($config_file),
+    config => MintTag::Config->from_file($config_file),
   });
 };
 
@@ -62,7 +62,7 @@ sub build ($self, $auto_mode = 0) {
 
   if ($self->interactive) {
     # exits on lack of user confirmation
-    my $approver = Mergeotron::Approver->new($self->config);
+    my $approver = MintTag::Approver->new($self->config);
     $approver->confirm_plan;
   }
 
@@ -200,7 +200,7 @@ sub maybe_tag_commit ($self, $this_step) {
   my $short = substr $sha, 0, 8;
   $tag .= "-g$short";
 
-  my $artifact = Mergeotron::Artifact->new({
+  my $artifact = MintTag::Artifact->new({
     annotation_version => $ANNOTATION_VERSION,
     config    => $self->config,
     base      => $self->merge_base,
@@ -209,7 +209,7 @@ sub maybe_tag_commit ($self, $this_step) {
   });
 
   my $msg = sprintf(
-    "mergeotron-tagged commit from step named %s\n\n%s",
+    "mint-tag generated commit from step named %s\n\n%s",
     $this_step->name,
     $artifact->as_toml,
   );

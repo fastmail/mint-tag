@@ -1,4 +1,4 @@
-# Mergeotron
+# mint-tag
 
 This is a pretty generic way of building branches/tags from a config file. Its
 main job is to fetch a series of merge/pull requests with some label and build
@@ -21,13 +21,13 @@ upstream_base = "upstream/master"
 clone = true
 
 [remote.github]
-interface_class = "Mergeotron::Remote::Github"
+interface_class = "MintTag::Remote::Github"
 api_url = "https://api.github.com"
 api_key = "your-api-key"
 repo = "cyrusimap/cyrus-imapd"
 
 [remote.fastmail]
-interface_class = "Mergeotron::Remote::GitLab"
+interface_class = "MintTag::Remote::GitLab"
 api_url = "https://gitlab.fm/api/v4"
 api_key = "ENV:GITLAB_API_KEY"
 repo = "fastmail/cyrus-imapd"
@@ -47,7 +47,7 @@ tag_prefix = "cyrus-fm"
 ```
 
 `[meta]` defines the committer who will be the author of these commits.
-`committer_name` is optional (it defaults to "Mergeotron"), but
+`committer_name` is optional (it defaults to "MintTag"), but
 `committer_email` is required. We require this, rather than use whatever git
 config you have set up in your environment, so that the SHAs produced by the
 builder are guaranteed to be the same, provided they have the same parent and
@@ -81,7 +81,7 @@ by members of that organization will be included in the build.
 The perl interface is meant to be dead simple:
 
 ```perl
-my $bob = Mergeotron->from_config_file('config/sample.toml`);
+my $bob = MintTag->from_config_file('config/sample.toml`);
 $bob->build();
 ```
 
@@ -94,12 +94,12 @@ step, combine them, then call `->merge_mrs(\@all_mrs)`. You do you, buddy.
 
 ## Guts
 
-When you call `->from_config_file`, we build a Mergeotron::Config object.
+When you call `->from_config_file`, we build a MintTag::Config object.
 That sets up objects for each remote based on their `interface_class`, either
-Github or GitLab. Those each consume the Mergeotron::Remote role, which I've
+Github or GitLab. Those each consume the MintTag::Remote role, which I've
 been meaning to write _forever_ and this finally gave me an excuse. That role
 requires the method `get_mrs_for_label`, which returns a list of
-Mergeotron::MergeRequest objects. Those are very straightforward objects, but
+MintTag::MergeRequest objects. Those are very straightforward objects, but
 it means that later you don't have to be concerned about the guts of the
 Github/GitLab APIs and the different ways in which they are each terrible.
 
