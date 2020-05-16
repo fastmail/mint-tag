@@ -1,5 +1,6 @@
 use v5.20;
 package App::MintTag::Approver;
+# ABSTRACT: ask a human to confirm a merge plan
 
 use Moo;
 use experimental qw(postderef signatures);

@@ -1,5 +1,6 @@
 use v5.20;
 package App::MintTag::Config;
+# ABSTRACT: how should we build this tag, anyway?
 
 use Moo;
 use experimental qw(signatures postderef);

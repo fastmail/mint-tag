@@ -1,5 +1,6 @@
 use v5.20;
 package App::MintTag::Artifact;
+# ABSTRACT: object representing a built tag
 
 use Moo;
 use experimental qw(postderef signatures);

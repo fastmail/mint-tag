@@ -1,5 +1,6 @@
 use v5.20;
 package App::MintTag::Remote;
+# ABSTRACT: a role for HTTP Git APIs to consume
 
 use Moo::Role;
 use experimental qw(signatures postderef);

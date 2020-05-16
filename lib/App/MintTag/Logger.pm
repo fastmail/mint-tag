@@ -1,6 +1,7 @@
 use v5.20;
 use warnings;
 package App::MintTag::Logger;
+# ABSTRACT: tell us what's going on as we run
 
 use parent 'Log::Dispatchouli::Global';
 

@@ -1,5 +1,6 @@
 use v5.20;
 package App::MintTag::Util;
+# ABSTRACT: Tiny subs needed in more than one place
 
 use experimental qw(postderef signatures);
 

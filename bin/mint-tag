@@ -1,5 +1,7 @@
 #!/usr/bin/env perl
 # PODNAME: mint-tag
+# ABSTRACT: build git tags from labeled pull/merge requests
+
 use v5.20;
 use lib 'lib';
 use App::MintTag;

@@ -1,5 +1,6 @@
 use v5.20;
 package App::MintTag::BuildStep;
+# ABSTRACT: defines a step of the tag-building process
 
 use Moo;
 use experimental qw(signatures postderef);
