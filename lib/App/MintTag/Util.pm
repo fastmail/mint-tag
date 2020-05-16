@@ -1,5 +1,6 @@
-package App::MintTag::Util;
 use v5.20;
+package App::MintTag::Util;
+
 use experimental qw(postderef signatures);
 
 use IPC::Run3 qw(run3);

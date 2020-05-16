@@ -1,5 +1,7 @@
 use v5.20;
 package App::MintTag;
+# ABSTRACT: turn labeled merge requests into git tags
+
 use Moo;
 use experimental qw(postderef signatures);
 

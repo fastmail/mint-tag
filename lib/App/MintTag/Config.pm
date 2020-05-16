@@ -1,6 +1,6 @@
 use v5.20;
-use warnings;
 package App::MintTag::Config;
+
 use Moo;
 use experimental qw(signatures postderef);
 

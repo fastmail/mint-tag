@@ -1,5 +1,6 @@
 use v5.20;
 package App::MintTag::Approver;
+
 use Moo;
 use experimental qw(postderef signatures);
 
