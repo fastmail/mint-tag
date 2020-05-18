@@ -317,7 +317,7 @@ sub _diagnostic_merge ($self, $mrs) {
 
   # If we are in this sub at all, we expect that the above will fail. If it
   # doesn't, something very strange indeed has happened.
-  $Logger->log('diagnostic merge succeeded somehow...this should not happen!');
+  $Logger->log_fatal('diagnostic merge succeeded somehow...this should not happen!');
 }
 
 sub _find_conflict ($self, $known_bad, $all_mrs) {
