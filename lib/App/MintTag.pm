@@ -65,7 +65,8 @@ sub build ($self, $auto_mode = 0) {
   if ($self->interactive) {
     # exits on lack of user confirmation
     my $approver = App::MintTag::Approver->new($self->config);
-    $approver->confirm_plan;
+    my $should_continue = $approver->confirm_plan;
+    return unless $should_continue;
   }
 
   # Act

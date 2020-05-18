@@ -40,6 +40,7 @@ has mrs_by_index => (
 sub is_valid_mr_index ($self, $idx) { exists $self->mrs_by_index->{$idx} }
 sub data_for_mr_index ($self, $idx) { $self->mrs_by_index->{$idx} }
 
+# Returns true to continue, false to abort
 sub confirm_plan ($self) {
   my $head = run_git('rev-parse', 'HEAD');
 
@@ -71,7 +72,7 @@ sub confirm_plan ($self) {
   unless ($total_mr_count > 0) {
     say "Well, that would have been a great branch, but I couldn't find anything";
     say "to merge. I guess I'll give up now; maybe next time!";
-    exit 0;
+    return;
   }
 
   for my $step ($self->config->steps) {
@@ -83,8 +84,7 @@ sub confirm_plan ($self) {
     $self->output_step($step, \$mr_counter);
   }
 
-  # will either return or exit
-  $self->enter_interactive_mode;
+  return $self->enter_interactive_mode;
 }
 
 sub enter_interactive_mode ($self) {
@@ -105,7 +105,7 @@ sub enter_interactive_mode ($self) {
 
     if ($input =~ /^y(es)?/) {
       say "Great...here we go!\n";
-      return;
+      return 1;
     }
 
     if ($input eq 'help') {
@@ -164,7 +164,7 @@ sub enter_interactive_mode ($self) {
 
   # EOF; assume abort
   say "Alright then...see you next time!";
-  exit 1;
+  return;
 }
 
 # return the most recent tag matching this config's *last* defined step.
