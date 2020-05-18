@@ -25,4 +25,4 @@ my ($opt, $usage) = describe_options(
 
 print($usage->text), exit if $opt->help;
 
-App::MintTag->from_config_file($opt->config)->build($opt->auto);
+App::MintTag->from_config_file($opt->config)->mint_tag($opt->auto);

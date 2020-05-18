@@ -49,7 +49,7 @@ sub from_config_file ($class, $config_file) {
   });
 };
 
-sub build ($self, $auto_mode = 0) {
+sub mint_tag ($self, $auto_mode = 0) {
   if ($auto_mode) {
     $self->interactive(0);
   }

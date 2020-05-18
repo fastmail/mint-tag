@@ -82,8 +82,8 @@ by members of that organization will be included in the build.
 The perl interface is meant to be dead simple:
 
 ```perl
-my $bob = App::MintTag->from_config_file('config/sample.toml');
-$bob->build();
+my $minter = App::MintTag->from_config_file('config/sample.toml');
+minter->mint_tag();
 ```
 
 If you want more control over the build process, you can just call individual
