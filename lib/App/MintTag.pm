@@ -187,16 +187,17 @@ sub maybe_tag_commit ($self, $this_step) {
     return;
   }
 
-  my $tag;
   my $prefix = $this_step->tag_prefix;
+  my $tag = "$prefix-$ymd.001";
 
-  for (my $n = 1; $n < 1000; $n++) {
-    my $candidate = sprintf '%03d', $n;
-    $tag = "$prefix-$ymd.$candidate";
+  # Grab the last tag we have, and increment our serial number, if we need to.
+  my ($last_tag) = sort {; $b cmp $a }
+                   split /\n/,
+                   run_git('tag', '-l', "$prefix-$ymd.*");
 
-    # Do a prefix match, because we're going to add the sha at the end.
-    my $found_tags = run_git('tag', '-l', "$tag*");
-    last unless $found_tags;
+  if ($last_tag) {
+    my ($n) = $last_tag =~ /\Q$prefix-$ymd.\E(\d+)/a;
+    $tag = sprintf "$prefix-$ymd.%03d", $n + 1;
   }
 
   my $short = substr $sha, 0, 8;
