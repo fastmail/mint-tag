@@ -11,7 +11,7 @@ use App::MintTag::Logger '$Logger' => { init => {
   facility  => 'news',
   to_stdout => 1,
   log_pid   => 0,
-  prefix    => 'log | ',
+  prefix    => 'mint-tag | ',
 } };
 
 use Getopt::Long::Descriptive;
