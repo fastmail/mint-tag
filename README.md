@@ -67,11 +67,12 @@ instructions as to how to fetch the things it needs. You can provide your
 it from the named environment variable instead. That means you can commit the
 configs without worrying about leaking secrets.
 
-`build_steps` is contains multiple steps; each must include a label, a pointer
-to a remote config, a name, and an optional tag prefix. If you specify it,
-you'll get a tag in the form `PREFIX-yyyymmdd.nnn-gSHA`, where `yyyymmdd` is
-the current date in UTC, and `nnn` is a serial number (starting at 001,
-incremented each day).
+`build_steps` is an array of steps.  Each must include a label, a pointer to a
+remote config, a name, and an optional tag prefix. If you specify it, you'll
+get a tag in the form `PREFIX-yyyymmdd.nnn-gSHA`, where `yyyymmdd` is the
+current date in UTC, and `nnn` is a serial number (starting at 001, reset every
+day, incremented on each of a day's builds).  If you don't, specify a tag
+prefix, the step will be untagged.
 
 If a build step has a `trusted_org` key, it means only merge requests authored
 by members of that organization will be included in the build.
