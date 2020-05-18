@@ -118,20 +118,20 @@ That's straightforward, if a little silly.
 This uses only CPAN modules. If you have a normal rjbs-influenced environment,
 you probably have these kicking around already.
 
-- Data::Dumper::Concise;
-- DateTime;
-- Getopt::Long::Descriptive;
+- Data::Dumper::Concise
+- DateTime
+- Getopt::Long::Descriptive
 - IPC::Run3
 - JSON::MaybeXS
-- LWP::UserAgent;
+- LWP::UserAgent
 - List::Util
 - Log::Dispatchouli
-- Moo::Role;
-- Moo;
+- Moo::Role
+- Moo
 - Path::Tiny
-- Process::Status;
-- TOML::Parser;
-- Try::Tiny;
+- Process::Status
+- TOML::Parser
+- Try::Tiny
 - Types::Standard
 - URI::Escape
-- URI;
+- URI
