@@ -124,15 +124,15 @@ sub enter_interactive_mode ($self) {
       next;
     }
 
-    # We can't meaningfully provide log/diff if we don't have base.
-    unless ($self->has_last_build) {
+    my ($action, $num, @rest) = split /\s+/, $input;
+
+    if (@rest || ! $num) {
       print $does_not_compute;
       next;
     }
 
-    my ($action, $num, @rest) = split /\s+/, $input;
-
-    if (@rest || ! $num) {
+    # We can't meaningfully provide log/diff if we don't have base.
+    if (! $self->has_last_build && ($action eq 'diff' || $action eq 'log')) {
       print $does_not_compute;
       next;
     }
