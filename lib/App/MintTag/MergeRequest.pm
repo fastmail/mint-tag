@@ -5,6 +5,8 @@ package App::MintTag::MergeRequest;
 use Moo;
 use experimental qw(postderef signatures);
 
+use App::MintTag::Util qw(run_git compute_patch_id);
+
 has remote => (
   is => 'ro',
   required => 1,
@@ -45,6 +47,7 @@ has refname => (
 has sha => (
   is => 'ro',
   required => 1,
+  writer => '_set_sha',
 );
 
 has short_sha => (
@@ -93,6 +96,20 @@ sub oneline_desc ($self) {
 # Silly, but I've now typed this like 8 times, so.
 sub as_commit_message ($self) {
   return "Merge " . $self->oneline_desc;
+}
+
+sub rebase ($self, $new_base) {
+  run_git('rebase', $new_base, $self->sha);   # might die, and should!
+
+  # we succeeded; we need to reset our sha, merge base, and patch id
+  my $new_sha = run_git('rev-parse', 'HEAD');
+  $self->_set_sha($new_sha);
+  $self->set_merge_base($new_base);
+
+  my $patch_id = compute_patch_id($new_base, $new_sha);
+  $self->set_patch_id($patch_id);
+
+  return 1;
 }
 
 1;

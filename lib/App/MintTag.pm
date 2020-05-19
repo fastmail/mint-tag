@@ -71,6 +71,7 @@ sub mint_tag ($self, $auto_mode = 0) {
   # Act
   for my $step ($self->config->steps) {
     local $Logger = $step->proxy_logger;
+    $self->maybe_rebase([ $step->merge_requests ]);
     $self->merge_mrs([ $step->merge_requests ]);
     $self->maybe_tag_commit($step);
   }
@@ -157,6 +158,18 @@ sub _ensure_remotes ($self) {
     # make sure our local tags are up to date
     run_git('fetch', '--tags', $remote->name);
   }
+}
+
+sub maybe_rebase ($self, $mrs) {
+  my $new_base = run_git('rev-parse', 'HEAD');
+
+  # rebase every MR onto its base
+  for my $mr (@$mrs) {
+    $mr->rebase($new_base);
+  }
+
+  # then check out our previous head
+  run_git('checkout', $new_base);
 }
 
 sub merge_mrs ($self, $mrs) {

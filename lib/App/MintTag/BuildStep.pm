@@ -7,7 +7,7 @@ use experimental qw(signatures postderef);
 use Try::Tiny;
 
 use App::MintTag::Logger '$Logger';
-use App::MintTag::Util qw(run_git);
+use App::MintTag::Util qw(run_git compute_patch_id);
 
 has name => (
   is => 'ro',
@@ -39,6 +39,12 @@ has tag_prefix => (
 
 has push_tag_to => (
   is => 'ro',
+);
+
+# whether we should rebase before merging
+has rebase => (
+  is => 'ro',
+  default => 0,
 );
 
 sub BUILD ($self, $arg) {
@@ -88,17 +94,7 @@ sub fetch_mrs ($self, $merge_base) {
     my $base = run_git('merge-base', $merge_base, $mr->sha);
     $mr->set_merge_base($base);
 
-    # Compute the patch id, but turn off debug logging, because it's gonna be
-    # super noisy.
-    my $is_debug = $Logger->get_debug;
-    $Logger->set_debug(0);
-
-    my $patch = run_git('diff-tree', '--patch-with-raw', $base, $mr->sha);
-
-    $Logger->set_debug($is_debug);
-
-    my $line = run_git('patch-id', { stdin => \$patch });
-    my ($patch_id) = split /\s/, $line;
+    my $patch_id = compute_patch_id($base, $mr->sha);
     $mr->set_patch_id($patch_id);
   }
 }
