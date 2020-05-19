@@ -112,7 +112,8 @@ sub ensure_initial_prep ($self) {
     die "local path $dir does not exist! (maybe you should set clone = true)\n"
       unless $self->config->should_clone;
 
-    chdir $dir->parent;
+    chdir $dir->parent or die "Couldn't chdir to $dir\'s parent!\n";
+
     $Logger->log(["cloning into $dir from %s", $self->upstream_base]);
 
     my $remote = $self->remote_named($self->upstream_remote_name);
@@ -126,7 +127,7 @@ sub ensure_initial_prep ($self) {
     );
   }
 
-  chdir $dir;
+  chdir $dir or die "Couldn't chdir to $dir; cowardly giving up\n";
 
   $self->_ensure_remotes;
   $self->have_set_up(1);
