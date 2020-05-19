@@ -5,11 +5,8 @@ package App::MintTag::MergeRequest;
 use Moo;
 use experimental qw(postderef signatures);
 
-use Types::Standard qw(Int Str ConsumerOf);
-
 has remote => (
   is => 'ro',
-  isa => ConsumerOf["App::MintTag::Remote"],
   required => 1,
   handles => {
     remote_name => 'name',
@@ -18,19 +15,16 @@ has remote => (
 
 has number => (
   is => 'ro',
-  isa => Int,
   required => 1,
 );
 
 has author => (
   is => 'ro',
-  isa => Str,
   required => 1,
 );
 
 has title => (
   is => 'ro',
-  isa => Str,
   required => 1,
 );
 
@@ -40,25 +34,21 @@ has title => (
 
 has fetch_spec => (
   is => 'ro',
-  isa => Str,
   required => 1,
 );
 
 has refname => (
   is => 'ro',
-  isa => Str,
   required => 1,
 );
 
 has sha => (
   is => 'ro',
-  isa => Str,
   required => 1,
 );
 
 has short_sha => (
   is => 'ro',
-  isa => Str,
   lazy => 1,
   default => sub ($self) {
     return substr $self->sha, 0, 8;
@@ -75,19 +65,16 @@ has ident => (
 
 has merge_base => (
   is => 'ro',
-  isa => Str,
   writer => 'set_merge_base',
 );
 
 has patch_id => (
   is => 'ro',
-  isa => Str,
   writer => 'set_patch_id',
 );
 
 has state => (
   is => 'ro',
-  isa => Str,
 );
 
 sub as_fetch_args ($self) {

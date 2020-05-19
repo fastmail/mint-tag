@@ -6,7 +6,6 @@ use Moo;
 use experimental qw(signatures postderef);
 
 use TOML::Parser;
-use Types::Standard qw(ArrayRef Bool HashRef Str ConsumerOf InstanceOf);
 
 use App::MintTag::BuildStep;
 use App::MintTag::Remote::Github;
@@ -35,42 +34,35 @@ has _cfg => (
   is => 'ro',
   required => 1,
   init_arg => 'cfg',
-  isa => HashRef,
 );
 
 has committer_name => (
   is => 'ro',
-  isa => Str,
   default => 'MintTag',
 );
 
 has committer_email => (
   is => 'ro',
-  isa => Str,
   required => 1,
 );
 
 has local_repo_dir => (
   is => 'ro',
-  isa => Str,
   required => 1,
 );
 
 has target_branch_name => (
   is => 'ro',
-  isa => Str,
   required => 1,
 );
 
 has upstream_base => (
   is => 'ro',
-  isa => Str,
   required => 1,
 );
 
 has upstream_remote_name => (
   is => 'ro',
-  isa => Str,
   lazy => 1,
   default => sub ($self) {
     my ($remote) = split m{/}, $self->upstream_base;
@@ -80,7 +72,6 @@ has upstream_remote_name => (
 
 has upstream_branch_name => (
   is => 'ro',
-  isa => Str,
   lazy => 1,
   default => sub ($self) {
     my (undef, $branch) = split m{/}, $self->upstream_base;
@@ -90,13 +81,18 @@ has upstream_branch_name => (
 
 has should_clone => (
   is => 'ro',
-  isa => Bool,
   coerce => sub ($val) { !! $val },
 );
 
 has remotes => (
   is => 'ro',
-  isa => HashRef[ConsumerOf["App::MintTag::Remote"]],
+  isa => sub ($val) {
+    die "remotes must be a hashref" unless ref $val eq 'HASH';
+    for my $k (keys %$val) {
+      die "remote named $k is not MintTag::Remote"
+        unless $val->{$k}->does('App::MintTag::Remote');
+    }
+  },
   required => 1,
 );
 
@@ -146,7 +142,13 @@ sub _assemble_remotes ($class, $remote_config) {
 
 has _steps => (
   is => 'ro',
-  isa => ArrayRef[InstanceOf["App::MintTag::BuildStep"]],
+  isa => sub ($val) {
+    die "steps must be an arrayref" unless ref $val eq 'ARRAY';
+    for my $step (@$val) {
+      die "step is not a MintTag::BuildStep"
+        unless $step->isa('App::MintTag::BuildStep');
+    }
+  },
   required => 1,
   init_arg => 'steps',
 );

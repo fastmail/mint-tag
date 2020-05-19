@@ -8,7 +8,6 @@ use experimental qw(postderef signatures);
 use List::Util qw(sum0);
 use Term::ANSIColor qw(color colored);
 use Try::Tiny;
-use Types::Standard qw(HashRef InstanceOf Maybe);
 
 use App::MintTag::Artifact;
 use App::MintTag::Logger '$Logger';
@@ -17,16 +16,15 @@ use App::MintTag::Util qw(run_git re_for_tag);
 has config => (
   is => 'ro',
   required => 1,
-  isa => InstanceOf['App::MintTag::Config'],
 );
 
 around BUILDARGS => sub ($orig, $self, $config) {
   return $self->$orig({ config => $config });
 };
 
+# a MintTag::Artifact object
 has last_build => (
   is => 'ro',
-  isa => Maybe[InstanceOf['App::MintTag::Artifact']],
   predicate => 'has_last_build',
   writer => '_set_last_build',
 );

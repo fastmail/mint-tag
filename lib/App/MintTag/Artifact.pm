@@ -7,39 +7,33 @@ use experimental qw(postderef signatures);
 
 use TOML::Parser;
 use Try::Tiny;
-use Types::Standard qw(InstanceOf Int Maybe Str);
 
 use App::MintTag::Logger '$Logger';
 
 has config => (
   is => 'ro',
   required => 1,
-  isa => InstanceOf['App::MintTag::Config'],
 );
 
 has base => (
   is => 'ro',
   required => 1,
-  isa => Str,
 );
 
 has tag_name => (
   is => 'ro',
   required => 1,
-  isa => Str,
 );
 
 has annotation_version => (
   is => 'ro',
   required => 1,
-  isa => Int,
 );
 
 # used when building from a minttag object, not when generating from tag
 # message
 has this_step => (
   is => 'ro',
-  isa => Maybe[InstanceOf['App::MintTag::BuildStep']],
   predicate => 'has_this_step',
 );
 

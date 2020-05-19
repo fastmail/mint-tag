@@ -5,20 +5,16 @@ package App::MintTag::BuildStep;
 use Moo;
 use experimental qw(signatures postderef);
 
-use Types::Standard qw(Bool Str ConsumerOf Maybe ArrayRef InstanceOf);
-
 use App::MintTag::Logger '$Logger';
 use App::MintTag::Util qw(run_git);
 
 has name => (
   is => 'ro',
-  isa => Str,
   required => 1,
 );
 
 has remote => (
   is => 'ro',
-  isa => ConsumerOf["App::MintTag::Remote"],
   required => 1,
   handles => {
     remote_name => 'name',
@@ -27,7 +23,6 @@ has remote => (
 
 has label => (
   is => 'ro',
-  isa => Str,
   required => 1,
 );
 
@@ -35,17 +30,14 @@ has label => (
 # label was added by someone not in this group, we'll reject it.
 has trusted_org => (
   is => 'ro',
-  isa => Maybe[Str],
 );
 
 has tag_prefix => (
   is => 'ro',
-  isa => Maybe[Str],
 );
 
 has push_tag_to => (
   is => 'ro',
-  isa => Maybe[ConsumerOf["App::MintTag::Remote"]],
 );
 
 sub BUILD ($self, $arg) {
@@ -58,7 +50,6 @@ sub BUILD ($self, $arg) {
 has _merge_requests => (
   is => 'ro',
   init_arg => undef,
-  isa => ArrayRef[InstanceOf["App::MintTag::MergeRequest"]],
   writer => 'set_merge_requests'
 );
 

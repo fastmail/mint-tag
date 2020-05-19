@@ -18,7 +18,6 @@ requires "Sub::Exporter" => "0";
 requires "TOML::Parser" => "0";
 requires "Term::ANSIColor" => "0";
 requires "Try::Tiny" => "0";
-requires "Types::Standard" => "0";
 requires "URI" => "0";
 requires "URI::Escape" => "0";
 requires "experimental" => "0";

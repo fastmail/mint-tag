@@ -16,11 +16,10 @@ use DateTime;
 use Path::Tiny ();
 use Process::Status;
 use Try::Tiny;
-use Types::Standard qw(Bool InstanceOf);
 
+# MintTag::Config object
 has config => (
   is => 'ro',
-  isa => InstanceOf['App::MintTag::Config'],
   required => 1,
   handles => [qw(
     all_remotes
@@ -100,7 +99,6 @@ sub prepare_local_directory ($self) {
 
 has have_set_up => (
   is => 'rw',
-  isa => Bool,
   default => 0,
 );
 

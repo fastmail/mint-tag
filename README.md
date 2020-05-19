@@ -117,22 +117,5 @@ If you've defined a `tag_prefix` for a step, we'll tag the resulting commit.
 That's straightforward, if a little silly.
 
 This uses only CPAN modules. If you have a normal rjbs-influenced environment,
-you probably have these kicking around already.
-
-- Data::Dumper::Concise
-- DateTime
-- Getopt::Long::Descriptive
-- IPC::Run3
-- JSON::MaybeXS
-- LWP::UserAgent
-- List::Util
-- Log::Dispatchouli
-- Moo::Role
-- Moo
-- Path::Tiny
-- Process::Status
-- TOML::Parser
-- Try::Tiny
-- Types::Standard
-- URI::Escape
-- URI
+you probably have these kicking around already, but you can install them with
+the cpanfile (or Makefile.PL).
