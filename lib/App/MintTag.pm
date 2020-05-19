@@ -250,6 +250,11 @@ sub finalize ($self) {
 }
 
 sub _octopus_merge ($self, $mrs) {
+  unless (@$mrs) {
+    $Logger->log("nothing to do!");
+    return;
+  }
+
   my @shas = map {; $_->sha } @$mrs;
 
   # Write our commit message into a file. This is potentially quite long, and
