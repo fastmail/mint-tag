@@ -48,41 +48,52 @@ sub get_mrs_for_label ($self, $label, $trusted_org_name = undef) {
     %ok_usernames = map {; $_ => 1 } $self->usernames_for_org($trusted_org_name);
   }
 
-  # GitHub does not allow you to get pull requests by label directly, so we
-  # need to make one to fetch everything with the label we want, and then a
-  # bunch of others to get the PRs themselves. (This sure would be easier if
-  # it were JMAP!)
-  my $issues = $self->http_get($self->uri_for('/issues', {
-    labels => $label,
-    sort => 'created',
-    direction => 'asc',
-  }));
-
-  my @pr_urls = map  {; $_->{pull_request}{url} }
-                grep {; $_->{pull_request}      }
-                @$issues;
-
+  # GitHub does not allow you to get pull requests by label directly, so here
+  # we grab *all* the open PRs and filter the label client-side, to reduce the
+  # number of HTTP requests.  (This sure would be easier if it were JMAP!)
   my @prs;
 
-  for my $url (@pr_urls) {
-    my $pr = $self->http_get($url);
-    my $head = $pr->{head};
-    my $number = $pr->{number};
-    my $username = $pr->{user}{login};
+  my $url = $self->uri_for('/pulls', {
+    sort => 'created',
+    direction => 'asc',
+    state => 'open',
+    per_page => 100,
+    page => 1,
+  });
 
-    if ($should_filter && ! $ok_usernames{$username}) {
-      $Logger->log([
-        "ignoring MR %s!%s from untrusted user %s (not in org %s)",
-        $self->name,
-        $number,
-        $username,
-        $trusted_org_name,
-      ]);
+  while (1) {
+    my ($prs, $http_res) = $self->http_get($url);
 
-      next;
+    PR: for my $pr (@$prs) {
+      my $head = $pr->{head};
+      my $number = $pr->{number};
+      my $username = $pr->{user}{login};
+
+      my $labels = $pr->{labels} // [];
+      my $is_relevant = grep {; $_->{name} eq $label} @$labels;
+
+      next PR unless $is_relevant;
+
+      if ($should_filter && ! $ok_usernames{$username}) {
+        $Logger->log([
+          "ignoring MR %s!%s from untrusted user %s (not in org %s)",
+          $self->name,
+          $number,
+          $username,
+          $trusted_org_name,
+        ]);
+
+        next PR;
+      }
+
+      push @prs, $self->_mr_from_raw($pr);
     }
 
-    push @prs, $self->_mr_from_raw($pr);
+    # Now, examine the link header to see if there's more to fetch.
+    my $links = $self->extract_link_header($http_res);
+
+    last unless defined $links->{next};
+    $url = $links->{next};
   }
 
   return @prs;

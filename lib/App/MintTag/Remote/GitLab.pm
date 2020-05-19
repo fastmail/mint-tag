@@ -52,6 +52,8 @@ sub get_mrs_for_label ($self, $label, $trusted_org_name) {
     per_page => 50,
   }));
 
+  # TODO: import pagination logic from Github. -- michael, 2020-05-19
+
   return [] unless @$mrs;
 
   my @sorted = sort { $a->{iid} <=> $b->{iid} } @$mrs;

@@ -58,7 +58,39 @@ sub http_get ($self, $url) {
   }
 
   my $data = decode_json($res->decoded_content);
-  return $data;
+  return wantarray ? ($data, $res) : $data;
+}
+
+# This parser sucks, but it's Good Enough for GitHub/GitLab, I think. (For the
+# full thing, see RFC 5988).  This return a hashref like
+# {
+#   next => URI,
+#   prev => URI,
+#   first => URI,
+#   ...
+# }
+sub extract_link_header ($self, $http_res) {
+  my %links;
+
+  if (my $link = $http_res->header('Link')) {
+    # each link separated by commas, so split on those (naively)
+    for my $hunk (split /,\s*/, $link) {
+      # value/params separated by semicolons
+      my ($uri, @params) = split /\s*;\s*/, $hunk;
+
+      # we only care about rel=
+      my ($rel) = map  {; /^rel="(.*?)"$/ }
+                  grep {; /^rel=/ }
+                  @params;
+
+      # kill whitespace and brackets
+      $uri =~ s/^\s*<|>\s*$//g;
+
+      $links{$rel} = $uri;
+    }
+  }
+
+  return \%links;
 }
 
 1;
