@@ -4,6 +4,7 @@ package App::MintTag::BuildStep;
 
 use Moo;
 use experimental qw(signatures postderef);
+use Try::Tiny;
 
 use App::MintTag::Logger '$Logger';
 use App::MintTag::Util qw(run_git);
@@ -69,8 +70,20 @@ sub fetch_mrs ($self, $merge_base) {
   $self->set_merge_requests(\@mrs);
 
   for my $mr ($self->merge_requests) {
-    run_git('fetch', $mr->as_fetch_args);
-    $Logger->log([ "fetched %s!%s",  $mr->remote_name, $mr->number ]);
+    # If we have the sha, we don't need to fetch
+    my $sha_exists = try { run_git('cat-file', '-e', $mr->sha); 1 };
+
+    if ($sha_exists) {
+      $Logger->log([
+        "already have %s!%s (%s) locally, will not fetch",
+        $mr->remote_name,
+        $mr->number,
+        substr($mr->sha, 0, 8),
+      ]);
+    } else {
+      run_git('fetch', $mr->as_fetch_args);
+      $Logger->log([ "fetched %s!%s",  $mr->remote_name, $mr->number ]);
+    }
 
     my $base = run_git('merge-base', $merge_base, $mr->sha);
     $mr->set_merge_base($base);
