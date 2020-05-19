@@ -1,6 +1,6 @@
 use v5.20;
-package App::MintTag::Remote::Github;
-# ABSTRACT: a remote implementation for Github
+package App::MintTag::Remote::GitHub;
+# ABSTRACT: a remote implementation for GitHub
 
 use Moo;
 use experimental qw(postderef signatures);
@@ -48,7 +48,7 @@ sub get_mrs_for_label ($self, $label, $trusted_org_name = undef) {
     %ok_usernames = map {; $_ => 1 } $self->usernames_for_org($trusted_org_name);
   }
 
-  # Github does not allow you to get pull requests by label directly, so we
+  # GitHub does not allow you to get pull requests by label directly, so we
   # need to make one to fetch everything with the label we want, and then a
   # bunch of others to get the PRs themselves. (This sure would be easier if
   # it were JMAP!)

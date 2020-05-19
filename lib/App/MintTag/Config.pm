@@ -8,7 +8,7 @@ use experimental qw(signatures postderef);
 use TOML::Parser;
 
 use App::MintTag::BuildStep;
-use App::MintTag::Remote::Github;
+use App::MintTag::Remote::GitHub;
 use App::MintTag::Remote::GitLab;
 
 sub from_file ($class, $file) {

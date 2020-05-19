@@ -21,7 +21,7 @@ upstream_base = "upstream/master"
 clone = true
 
 [remote.github]
-interface_class = "App::MintTag::Remote::Github"
+interface_class = "App::MintTag::Remote::GitHub"
 api_url = "https://api.github.com"
 api_key = "your-api-key"
 repo = "cyrusimap/cyrus-imapd"
@@ -97,12 +97,12 @@ step, combine them, then call `->merge_mrs(\@all_mrs)`. You do you, buddy.
 
 When you call `->from_config_file`, we build an App::MintTag::Config object.
 That sets up objects for each remote based on their `interface_class`, either
-Github or GitLab. Those each consume the App::MintTag::Remote role, which I've
+GitHub or GitLab. Those each consume the App::MintTag::Remote role, which I've
 been meaning to write _forever_ and this finally gave me an excuse. That role
 requires the method `get_mrs_for_label`, which returns a list of
 App::MintTag::MergeRequest objects. Those are very straightforward objects, but
 it means that later you don't have to be concerned about the guts of the
-Github/GitLab APIs and the different ways in which they are each terrible.
+GitHub/GitLab APIs and the different ways in which they are each terrible.
 
 The merging process is straightforward:
 
