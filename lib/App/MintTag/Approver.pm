@@ -173,7 +173,7 @@ sub last_tag_for_config ($self) {
 
   return unless $prefix;
 
-  my $output = run_git(qw(tag -l), "$prefix*");
+  my $output = run_git(qw(tag -l), "$prefix-*");
 
   my $re = re_for_tag($prefix);
 

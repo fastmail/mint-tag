@@ -147,15 +147,15 @@ sub _ensure_remotes ($self) {
 
     if (my $have = $have_remotes{$name}) {
       # nothing to do unless they're mismatched.
-      if ($have ne $remote_url) {
-        die "mismatched remote $name: have $have, want $remote_url";
-      }
-
-      next REMOTE;
+      die "mismatched remote $name: have $have, want $remote_url"
+        unless $have eq $remote_url;
+    } else {
+      $Logger->log("adding missing remote for $name at $remote_url");
+      run_git('remote', 'add', $name, $remote_url);
     }
 
-    $Logger->log("adding missing remote for $name at $remote_url");
-    run_git('remote', 'add', $name, $remote_url);
+    # make sure our local tags are up to date
+    run_git('fetch', '--tags', $remote->name);
   }
 }
 
