@@ -216,7 +216,7 @@ sub maybe_set_last_build ($self) {
 
 sub output_step ($self, $step, $counter_ref) {
   unless ($step->merge_requests) {
-    printf("Nothing to do! No merge requests labeled %s found on remote %s\n",
+    printf("Nothing to do! No merge requests labeled %s found on remote %s\n\n",
       $step->label,
       $step->remote->name,
     );
