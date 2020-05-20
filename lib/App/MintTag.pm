@@ -15,6 +15,7 @@ use Data::Dumper::Concise;
 use DateTime;
 use Path::Tiny ();
 use Process::Status;
+use Term::ANSIColor qw(color colored);
 use Try::Tiny;
 
 # MintTag::Config object
@@ -68,15 +69,33 @@ sub mint_tag ($self, $auto_mode = 0) {
     return unless $should_continue;
   }
 
-  # Act
-  for my $step ($self->config->steps) {
-    local $Logger = $step->proxy_logger;
-    $self->maybe_rebase([ $step->merge_requests ]);
-    $self->merge_mrs([ $step->merge_requests ]);
-    $self->maybe_tag_commit($step);
-  }
+  # Do this in a try block, so that we can be very noisy if something goes
+  # wrong.
+  try {
+    for my $step ($self->config->steps) {
+      local $Logger = $step->proxy_logger;
+      $self->maybe_rebase([ $step->merge_requests ]);
+      $self->merge_mrs([ $step->merge_requests ]);
+      $self->maybe_tag_commit($step);
+    }
 
-  $self->finalize;
+    $self->finalize;
+  } catch {
+    my $e = $_;
+
+    my $local = $self->config->local_repo_dir;
+    my $msg = join("\n",
+      "Something went wrong during the merge process. Your local tree is probably",
+      "in a weird state (it might have detached HEAD, or merge conflicts, etc.).",
+      "I've left everything the way it was, so you can investigate if you like.",
+      "Working directory:",
+      "    $local",
+    );
+
+    $msg = colored($msg, 'bright_red') if $self->interactive;
+
+    say "\n$msg";
+  };
 }
 
 # Change into our directory, check out the correct branch, and make sure we
