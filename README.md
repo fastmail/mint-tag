@@ -44,6 +44,7 @@ name = "capstone"
 remote = "fastmail"
 label = "include-in-deploy"
 tag_prefix = "cyrus-fm"
+rebase = true
 ```
 
 `[meta]` defines the committer who will be the author of these commits.
@@ -71,8 +72,13 @@ configs without worrying about leaking secrets.
 remote config, a name, and an optional tag prefix. If you specify it, you'll
 get a tag in the form `PREFIX-yyyymmdd.nnn-gSHA`, where `yyyymmdd` is the
 current date in UTC, and `nnn` is a serial number (starting at 001, reset every
-day, incremented on each of a day's builds).  If you don't, specify a tag
+day, incremented on each of a day's builds). If you don't, specify a tag
 prefix, the step will be untagged.
+
+If `rebase` is present and true, each merge request in this step will be
+rebased on top of HEAD before merging. This has some knock-on effects:
+notably, if you build twice in a row you'll get different shas (without
+rebase, builds give repeatable shas).
 
 If a build step has a `trusted_org` key, it means only merge requests authored
 by members of that organization will be included in the build.
