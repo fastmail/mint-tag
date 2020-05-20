@@ -228,6 +228,10 @@ sub output_step ($self, $step, $counter_ref) {
     $step->remote->name,
   );
 
+  if ($step->rebase) {
+    say colored("NB: each of these will be rebased before merging!\n", 'yellow');
+  }
+
   for my $mr ($step->merge_requests) {
     my $delta = 'no previous build';
     my $old;
