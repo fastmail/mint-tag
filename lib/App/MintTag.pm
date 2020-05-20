@@ -156,6 +156,7 @@ sub _ensure_remotes ($self) {
     }
 
     # make sure our local tags are up to date
+    $Logger->log("fetching tags for $name");
     run_git('fetch', '--tags', $remote->name);
   }
 }
