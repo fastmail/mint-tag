@@ -233,68 +233,14 @@ sub output_step ($self, $step, $counter_ref) {
   }
 
   for my $mr ($step->merge_requests) {
-    my $delta = 'no previous build';
-    my $old;
-
-    if (my $artifact = $self->last_build) {
-      if ($artifact->contains_mr($mr)) {
-        $old = $artifact->data_for_mr($mr);
-        my $short = substr $old->{sha}, 0, 8;
-
-        $delta =
-            $mr->sha eq $old->{sha}               ? 'unchanged'
-          : $mr->patch_id eq $old->{patch_id}     ? "was $short, rebased but unchanged"
-          : $mr->merge_base ne $old->{merge_base} ? "was $short, rebased and altered"
-          :                                         "was $short";
-
-        if ($old->{step_name} ne $step->name) {
-          $delta .= ", was in step named $old->{step_name}";
-        }
-      } else {
-        $delta = 'new branch';
-      }
-    }
-
-    my $mr_desc = sprintf("!%d, %s (%s)\n    %s - %s",
-      $mr->number,
-      $mr->short_sha,
-      $delta,
-      $mr->author,
-      $mr->title,
-    );
-
-    my $i = $$counter_ref++;
-    say "$i: $mr_desc";
-    $self->mrs_by_index->{$i} = [ $old,  $mr ];
+    my $idx = $$counter_ref++;
+    $self->output_mr($step, $mr, $idx);
   }
 
   # Find anything that was in the last build, but has now disappeared
   if ($self->has_last_build) {
     my @missing = $self->last_build->mrs_not_in($step);
-    if (@missing) {
-      say "\nLast time, we included these merge requests, which have disappeared:";
-    }
-
-    for my $gone (@missing) {
-      # Try to get some details about them, if we can.
-      my $short_sha = substr $gone->{sha}, 0, 8;
-      my $mr_desc = "!$gone->{number} (was $short_sha; unable to get more data)";
-
-      # NOTE: this is inefficient in the face of 'restart', because it'll
-      # refetch every time. I think that's fine for right now.
-      if (my $remote = $gone->{remote}) {
-        my $mr = $remote->get_mr($gone->{number});
-        $mr_desc = sprintf("!%d, %s (status: %s)\n    %s - %s",
-          $mr->number,
-          $mr->short_sha,
-          $mr->state,
-          $mr->author,
-          $mr->title,
-        );
-      }
-
-      say "-: $mr_desc";
-    }
+    $self->output_missing_mrs(\@missing);
   }
 
   if (my $remote = $step->push_tag_to) {
@@ -302,6 +248,70 @@ sub output_step ($self, $step, $counter_ref) {
   }
 
   say "";
+}
+
+sub output_mr ($self, $step, $mr, $idx) {
+  my $delta = 'no previous build';
+  my $old;
+
+  if (my $artifact = $self->last_build) {
+    if ($artifact->contains_mr($mr)) {
+      $old = $artifact->data_for_mr($mr);
+      my $short = substr $old->{sha}, 0, 8;
+
+      $delta =
+          $mr->sha eq $old->{sha}               ? 'unchanged'
+        : $mr->patch_id eq $old->{patch_id}     ? "was $short, rebased but unchanged"
+        : $mr->merge_base ne $old->{merge_base} ? "was $short, rebased and altered"
+        :                                         "was $short";
+
+      if ($old->{step_name} ne $step->name) {
+        $delta .= ", was in step named $old->{step_name}";
+      }
+    } else {
+      $delta = 'new branch';
+    }
+  }
+
+  my $mr_desc = sprintf("!%d, %s (%s)\n    %s - %s",
+    $mr->number,
+    $mr->short_sha,
+    $delta,
+    $mr->author,
+    $mr->title,
+  );
+
+  say "$idx: $mr_desc";
+  $self->mrs_by_index->{$idx} = [ $old,  $mr ];
+}
+
+sub output_missing_mrs ($self, $missing) {
+  return unless @$missing;
+
+  if (@$missing) {
+    say "\nLast time, we included these merge requests, which have disappeared:";
+  }
+
+  for my $gone (@$missing) {
+    # Try to get some details about them, if we can.
+    my $short_sha = substr $gone->{sha}, 0, 8;
+    my $mr_desc = "!$gone->{number} (was $short_sha; unable to get more data)";
+
+    # NOTE: this is inefficient in the face of 'plan', because it'll
+    # refetch every time. I think that's fine for right now.
+    if (my $remote = $gone->{remote}) {
+      my $mr = $remote->get_mr($gone->{number});
+      $mr_desc = sprintf("!%d, %s (status: %s)\n    %s - %s",
+        $mr->number,
+        $mr->short_sha,
+        $mr->state,
+        $mr->author,
+        $mr->title,
+      );
+    }
+
+    say "-: $mr_desc";
+  }
 }
 
 sub _run_git_for_mr ($self, $idx, $code) {
