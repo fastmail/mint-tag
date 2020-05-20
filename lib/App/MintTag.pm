@@ -183,6 +183,10 @@ sub _ensure_remotes ($self) {
 sub maybe_rebase ($self, $mrs) {
   my $new_base = run_git('rev-parse', 'HEAD');
 
+  # We want some evidence that this rebase was performed automatically.
+  local $ENV{GIT_COMMITTER_NAME}  = $self->config->committer_name;
+  local $ENV{GIT_COMMITTER_EMAIL} = $self->config->committer_email;
+
   # rebase every MR onto its base
   for my $mr (@$mrs) {
     try {
