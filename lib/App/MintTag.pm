@@ -166,7 +166,18 @@ sub maybe_rebase ($self, $mrs) {
 
   # rebase every MR onto its base
   for my $mr (@$mrs) {
-    $mr->rebase($new_base);
+    try {
+      $mr->rebase($new_base);
+    } catch {
+      my $e = $_;
+      $Logger->log_fatal([
+        "Error rebasing %s!%s (%s) onto HEAD (%s); bailing out!",
+        $mr->remote_name,
+        $mr->number,
+        $mr->sha,
+        substr($new_base, 0, 8),
+      ])
+    };
   }
 
   # then check out our previous head
