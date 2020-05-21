@@ -317,10 +317,11 @@ sub _octopus_merge ($self, $mrs) {
   my $path = Path::Tiny->tempfile();
   $path->spew_utf8($msg);
 
-  # Here we're going to grab the latest author date of the MRs we include,
+  # Here we're going to grab the latest author date of the heads we include,
   # then use that for both the author and committer dates, so that we can get
   # repeatable shas.
-  my $latest = 0;
+  my $latest = run_git('show', '--no-patch', '--format=%at', $self->merge_base);
+
   for my $mr (@$mrs) {
     my $epoch = run_git('show', '--no-patch', '--format=%at', $mr->sha);
     $latest = $epoch if $epoch > $latest;
