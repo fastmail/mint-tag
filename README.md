@@ -2,7 +2,7 @@
 
 This is a pretty generic way of building branches/tags from a config file. Its
 main job is to fetch a series of merge/pull requests with some label and build
-a branch from them. It's still a work in progress.
+a branch from them.
 
 ## Config
 
@@ -24,26 +24,26 @@ clone = true
 interface_class = "App::MintTag::Remote::GitHub"
 api_url = "https://api.github.com"
 api_key = "your-api-key"
-repo = "cyrusimap/cyrus-imapd"
+repo = "fastmail/minttag"
 
-[remote.fastmail]
+[remote.gitlab]
 interface_class = "App::MintTag::Remote::GitLab"
-api_url = "https://gitlab.fm/api/v4"
+api_url = "https://gitlab.com/api/v4"
 api_key = "ENV:GITLAB_API_KEY"
-repo = "fastmail/cyrus-imapd"
+repo = "mmcclimon/minttag"
 
 [[build_steps]]
 name = "upstream"
 remote = "github"
 label = "include-in-deploy"
-trusted_org = "fastmail"
+trusted_org = "my-cool-org"
 tag_prefix = "cyrus"
 
 [[build_steps]]
-name = "capstone"
-remote = "fastmail"
+name = "patches"
+remote = "gitlab"
 label = "include-in-deploy"
-tag_prefix = "cyrus-fm"
+tag_prefix = "mytag"
 rebase = true
 ```
 
@@ -89,13 +89,11 @@ The perl interface is meant to be dead simple:
 
 ```perl
 my $minter = App::MintTag->from_config_file('config/sample.toml');
-minter->mint_tag();
+$minter->mint_tag();
 ```
 
 If you want more control over the build process, you can just call individual
-methods yourself. You might do this if, say, you want a human to confirm that
-those MRs are in fact the ones you want, and insert `$self->confirm_mrs($mrs)`
-between the fetch and merge steps. Or, maybe you want to merge all the MRs at
+methods yourself. You might do this if, say, you want to merge all the MRs at
 once in a big octopus, in which case you could fetch the MRs from every
 step, combine them, then call `->merge_mrs(\@all_mrs)`. You do you, buddy.
 
@@ -103,8 +101,7 @@ step, combine them, then call `->merge_mrs(\@all_mrs)`. You do you, buddy.
 
 When you call `->from_config_file`, we build an App::MintTag::Config object.
 That sets up objects for each remote based on their `interface_class`, either
-GitHub or GitLab. Those each consume the App::MintTag::Remote role, which I've
-been meaning to write _forever_ and this finally gave me an excuse. That role
+GitHub or GitLab. Those each consume the App::MintTag::Remote role. That role
 requires the method `get_mrs_for_label`, which returns a list of
 App::MintTag::MergeRequest objects. Those are very straightforward objects, but
 it means that later you don't have to be concerned about the guts of the
@@ -116,12 +113,31 @@ The merging process is straightforward:
 2. try to do an octopus merge
 3. if that fails, try merging one-by-one to find the conflict
 
-This is mostly stolen from the branch rebuilder we have in hm, but with better
-diagnostics (I hope).
+This is mostly stolen from the branch rebuilder we previously used internally
+at Fastmail, but with better diagnostics (I hope).
 
 If you've defined a `tag_prefix` for a step, we'll tag the resulting commit.
 That's straightforward, if a little silly.
 
-This uses only CPAN modules. If you have a normal rjbs-influenced environment,
-you probably have these kicking around already, but you can install them with
-the cpanfile (or Makefile.PL).
+## Installing
+
+With [Dist::Zilla](https://metacpan.org/pod/Dist::Zilla):
+
+```
+$ dzil listdeps | cpanm
+$ dzil install
+```
+
+With [cpanm](https://metacpan.org/pod/App::cpanminus):
+
+```
+$ cpanm --installdeps .
+```
+
+The old way:
+
+```
+$ perl Makefile.PL
+$ make
+$ make install
+```
