@@ -115,6 +115,7 @@ sub _mr_from_raw ($self, $raw) {
     fetch_spec => $self->name,
     refname    => "pull/$number/head",
     sha        => $raw->{head}->{sha},
+    state      => $raw->{state},
   });
 }
 
