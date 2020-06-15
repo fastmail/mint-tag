@@ -133,6 +133,7 @@ has merge_requests => (
         # maybe: rethink if we want to include merge-base?
         $mrs{$key} = {
           %$mr,
+          key       => $key,
           step_name => $step->{name},
           remote    => $self->config->remote_for_url($step->{remote}),
         },
@@ -161,9 +162,13 @@ sub data_for_mr ($self, $mr) {
 sub mrs_not_in ($self, $step) {
   my %have_in_step =  map {; $self->_key_for_mr($_) => 1 } $step->merge_requests;
 
+  my @existing_keys = map  {; $_->{key} }
+                      grep {; $_->{step_name} eq $step->name }
+                      values $self->merge_requests->%*;
+
   my @missing = map  {; $self->merge_requests->{$_} }
                 grep {; ! $have_in_step{$_} }
-                keys $self->merge_requests->%*;
+                @existing_keys;
 
   return @missing;
 }
