@@ -76,7 +76,9 @@ sub mint_tag ($self, $auto_mode = 0) {
       local $Logger = $step->proxy_logger;
       $self->maybe_rebase([ $step->merge_requests ]);
       $self->merge_mrs([ $step->merge_requests ]);
-      $self->maybe_tag_commit($step);
+
+      my $tag = $self->maybe_tag_commit($step);
+      $self->maybe_push($step, $tag);
     }
 
     $self->finalize;
@@ -231,8 +233,7 @@ sub maybe_tag_commit ($self, $this_step) {
   if (my $existing = $self->check_existing_tags($this_step->tag_prefix, $sha)) {
     my $short = substr $sha, 0, 12;
     $Logger->log("$short already tagged as $existing; skipping");
-    $self->maybe_push_tag($this_step, $existing);
-    return;
+    return $existing;
   }
 
   my $prefix = $this_step->tag_prefix;
@@ -272,7 +273,7 @@ sub maybe_tag_commit ($self, $this_step) {
   $Logger->log("tagging $sha as $tag");
   run_git('tag', '-F', $path->absolute, $tag);
 
-  $self->maybe_push_tag($this_step, $tag);
+  return $tag;
 }
 
 sub check_existing_tags($self, $prefix, $sha) {
@@ -286,10 +287,34 @@ sub check_existing_tags($self, $prefix, $sha) {
   return $tag;
 }
 
-sub maybe_push_tag ($self, $step, $tag) {
+sub maybe_push ($self, $step, $tagname = undef) {
   if (my $remote = $step->push_tag_to) {
+    unless (length $tagname) {
+      $Logger->log_fatal(["cannot push empty tag to remote %s!", $remote->name]);
+    }
+
     $Logger->log(["pushing tag to remote %s", $remote->name ]);
-    run_git('push', $remote->name, $tag);
+    run_git('push', $remote->name, $tagname);
+  }
+
+  if ($step->has_push_spec) {
+    my $spec         = $step->push_spec;
+    my $remote       = $spec->{remote};
+    my $should_force = $spec->{force};
+    my $refspec      = join q{:}, 'HEAD', "refs/heads/$spec->{branch}";
+
+    $Logger->log(["%spushing branch to remote %s/%s",
+      $should_force ? 'force-' : '',
+      $remote->name,
+      $spec->{branch},
+    ]);
+
+    run_git(
+      'push',
+      $remote->name,
+      ($spec->{force} ? '--force-with-lease' : ()),
+      $refspec,
+    );
   }
 }
 

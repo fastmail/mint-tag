@@ -41,6 +41,12 @@ has push_tag_to => (
   is => 'ro',
 );
 
+# Hashref: { remote => $remote, branch => 'branchname', force => $bool }
+has push_spec => (
+  is => 'ro',
+  predicate => 'has_push_spec',
+);
+
 # whether we should rebase before merging
 has rebase => (
   is => 'ro',

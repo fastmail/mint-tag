@@ -166,7 +166,17 @@ sub _assemble_steps ($class, $step_config, $remotes) {
     my $tag_remote;
     if (my $tag_remote_name = delete $step->{push_tag_to}) {
       $tag_remote = $remotes->{$tag_remote_name};
-      die "No matching remote found for $tag_remote!\n" unless $tag_remote;
+      die "No matching remote found for $tag_remote_name!\n" unless $tag_remote;
+    }
+
+    if (my $spec = $step->{push_spec}) {
+      die "push_spec must have 'remote' and 'branch' keys\n"
+        unless $spec->{remote} && $spec->{branch};
+
+      my $remote = $remotes->{ $spec->{remote} };
+      die "No matching remote found for $spec->{remote}!\n" unless $remote;
+
+      $spec->{remote} = $remote;  # replace with a real remote object
     }
 
     push @steps, App::MintTag::BuildStep->new({
