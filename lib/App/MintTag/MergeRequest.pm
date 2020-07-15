@@ -85,7 +85,7 @@ sub as_fetch_args ($self) {
 }
 
 sub oneline_desc ($self) {
-  return sprintf("!%d, %s (%s) - %s",
+  return sprintf("%d, %s (%s) - %s",
     $self->number,
     $self->short_sha,
     $self->author,
