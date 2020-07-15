@@ -85,20 +85,22 @@ sub mint_tag ($self, $auto_mode = 0) {
   } catch {
     my $e = $_;
 
-    return unless $self->interactive;
+    if ($self->interactive) {
+      my $local = $self->config->local_repo_dir;
+      my $msg = join("\n",
+        "Something went wrong during the merge process. Your local tree is probably",
+        "in a weird state (it might have detached HEAD, or merge conflicts, etc.).",
+        "I've left everything the way it was, so you can investigate if you like.",
+        "Working directory:",
+        "    $local",
+      );
 
-    my $local = $self->config->local_repo_dir;
-    my $msg = join("\n",
-      "Something went wrong during the merge process. Your local tree is probably",
-      "in a weird state (it might have detached HEAD, or merge conflicts, etc.).",
-      "I've left everything the way it was, so you can investigate if you like.",
-      "Working directory:",
-      "    $local",
-    );
+      $msg = colored($msg, 'bright_red') if $self->interactive;
 
-    $msg = colored($msg, 'bright_red') if $self->interactive;
+      say "\n$msg";
+    }
 
-    say "\n$msg";
+    die $e;   # rethrow
   };
 }
 
