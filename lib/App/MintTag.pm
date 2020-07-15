@@ -441,10 +441,10 @@ sub _find_conflict ($self, $known_bad, $all_mrs) {
       # NB: this prefix nonsense is because I have diff.noprefix true in my
       # local gitconfig, which causes this command to fail cryptically.
       my $patch = run_git(
-        'format-patch', '--src-prefix=a/', '--dst-prefix=b/', '--stdout', $mr->sha
+        'format-patch', '--src-prefix=a/', '--dst-prefix=b/', '--stdout', 'HEAD..' . $mr->sha
       );
 
-      run_git('apply', 'check', { stdin => \$patch });
+      run_git('apply', '--check', { stdin => \$patch });
     } catch {
       my $err = $_;
       chomp $err;
