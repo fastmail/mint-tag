@@ -74,7 +74,7 @@ sub mint_tag ($self, $auto_mode = 0) {
   try {
     for my $step ($self->config->steps) {
       local $Logger = $step->proxy_logger;
-      $self->maybe_rebase([ $step->merge_requests ]);
+      $self->maybe_rebase($step);
       $self->merge_mrs([ $step->merge_requests ]);
 
       my $tag = $self->maybe_tag_commit($step);
@@ -184,7 +184,9 @@ sub _ensure_remotes ($self) {
   }
 }
 
-sub maybe_rebase ($self, $mrs) {
+sub maybe_rebase ($self, $step) {
+  return unless $step->rebase;
+
   my $new_base = run_git('rev-parse', 'HEAD');
 
   # We want some evidence that this rebase was performed automatically.
@@ -192,7 +194,7 @@ sub maybe_rebase ($self, $mrs) {
   local $ENV{GIT_COMMITTER_EMAIL} = $self->config->committer_email;
 
   # rebase every MR onto its base
-  for my $mr (@$mrs) {
+  for my $mr ($step->merge_requests) {
     try {
       $mr->rebase($new_base);
     } catch {
