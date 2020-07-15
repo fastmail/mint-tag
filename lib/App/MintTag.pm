@@ -366,7 +366,10 @@ sub _octopus_merge ($self, $mrs) {
 
   $Logger->log("octopus merging $n $mrs_eng");
 
-  run_git('merge', '--no-ff', '-F' => $path->absolute, @shas);
+  # We merge with no-commit, then commit -F, because older gits do not support
+  # merge -F.  -- michael, 2020-07-15
+  run_git('merge', '--no-ff', '--no-commit', @shas);
+  run_git('commit', '-F' => $path->absolute);
 
   $Logger->log([ "merged $n $mrs_eng into %s", $self->target_branch_name ]);
 }
