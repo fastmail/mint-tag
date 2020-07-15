@@ -35,7 +35,13 @@ sub run_git (@cmd) {
     $Logger->log_debug($_) for @lines;
   }
 
-  $ps->assert_ok(join(q{ }, @cmd[0..1]));
+  unless ($ps->is_success) {
+    $Logger->log_fatal([
+      "encountered error while running %s: %s",
+      "@cmd",
+      $out,
+    ]);
+  }
 
   return $out;
 }

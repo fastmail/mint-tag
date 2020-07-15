@@ -85,6 +85,8 @@ sub mint_tag ($self, $auto_mode = 0) {
   } catch {
     my $e = $_;
 
+    return unless $self->interactive;
+
     my $local = $self->config->local_repo_dir;
     my $msg = join("\n",
       "Something went wrong during the merge process. Your local tree is probably",
