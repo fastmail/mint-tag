@@ -11,7 +11,6 @@ use App::MintTag::Logger '$Logger' => { init => {
   facility  => 'daemon',
   to_stdout => 1,
   log_pid   => 0,
-  prefix    => 'mint-tag | ',
 } };
 
 use Getopt::Long::Descriptive;
@@ -24,5 +23,11 @@ my ($opt, $usage) = describe_options(
 );
 
 print($usage->text), exit if $opt->help;
+
+local $Logger = $Logger;
+unless ($opt->auto) {
+  # Nicer logs if someone is looking at it.
+  $Logger = $Logger->proxy({ proxy_prefix => 'mint-tag | '});
+}
 
 App::MintTag->from_config_file($opt->config)->mint_tag($opt->auto);
