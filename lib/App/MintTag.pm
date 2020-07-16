@@ -39,6 +39,7 @@ has interactive => (
 has merge_base => (
   is => 'rw',
   init_arg => undef,
+  predicate => 'has_merge_base',
 );
 
 our $ANNOTATION_VERSION = 1;
@@ -112,15 +113,17 @@ sub prepare_local_directory ($self) {
 
   my $target = $self->target_branch_name;
 
+  unless ($self->has_merge_base) {
+    run_git('fetch', $self->upstream_remote_name);
+    my $base_sha = run_git('rev-parse', $self->upstream_base);
+    $self->merge_base($base_sha);
+  }
+
   $Logger->log("creating branch: $target");
   run_git('reset', '--hard');
   # maybe: git clean -fdx
-  run_git('fetch', $self->upstream_remote_name);
-  run_git('checkout', '--no-track', '-B', $target, $self->upstream_base);
+  run_git('checkout', '--no-track', '-B', $target, $self->merge_base);
   run_git('submodule', 'update');
-
-  my $base_sha = run_git('rev-parse', 'HEAD');
-  $self->merge_base($base_sha);
 }
 
 has have_set_up => (
