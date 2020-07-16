@@ -429,7 +429,7 @@ sub _find_conflict ($self, $known_bad, $all_mrs) {
 
     $Logger->log_fatal([ "%s conflicts with %s (%s)",
       $known_bad->ident,
-      $self->target_branch_name,
+      $self->upstream_base,
       $err,
     ]);
   };
