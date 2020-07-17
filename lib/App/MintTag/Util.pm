@@ -35,7 +35,11 @@ sub run_git (@cmd) {
     $Logger->log_debug($_) for @lines;
   }
 
-  unless ($ps->is_success) {
+  if (! $ps->is_success) {
+    # Sometimes we run git just to check if something exists, where an error
+    # is not exceptional, in which case the extra log is just noise.
+    die "git failed: @cmd" if $arg->{suppress_log_error};
+
     $Logger->log_fatal([
       "encountered error while running %s: %s",
       "@cmd",

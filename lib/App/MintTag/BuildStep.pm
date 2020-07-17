@@ -83,7 +83,10 @@ sub fetch_mrs ($self, $merge_base) {
 
   for my $mr ($self->merge_requests) {
     # If we have the sha, we don't need to fetch
-    my $sha_exists = try { run_git('cat-file', '-e', $mr->sha); 1 };
+    my $sha_exists = try {
+      run_git('cat-file', '-e', $mr->sha, { suppress_log_error => 1 });
+      1;
+    };
 
     if ($sha_exists) {
       $Logger->log([
@@ -94,7 +97,7 @@ sub fetch_mrs ($self, $merge_base) {
       ]);
     } else {
       run_git('fetch', $mr->as_fetch_args);
-      $Logger->log([ "fetched %s!%s",  $mr->remote_name, $mr->number ]);
+      $Logger->log([ "fetched %s!%s (%s)",  $mr->remote_name, $mr->number, $mr->short_sha ]);
     }
 
     my $base = run_git('merge-base', $merge_base, $mr->sha);
