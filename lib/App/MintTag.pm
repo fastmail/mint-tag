@@ -159,6 +159,7 @@ sub ensure_initial_prep ($self) {
   }
 
   chdir $dir or die "Couldn't chdir to $dir; cowardly giving up\n";
+  $Logger->log("using local path $dir");
 
   $self->_ensure_remotes;
   $self->have_set_up(1);
