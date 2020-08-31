@@ -19,6 +19,7 @@ my ($opt, $usage) = describe_options(
   '%c %o',
   [ 'config|c=s', 'config file to use', { required => 1 } ],
   [ 'auto',       'do not run in interactive mode' ],
+  [ 'verbose|v',  'turn on debug logging' ],
   [ 'help|h',     'show help and exit', { shortcircuit => 1 } ],
 );
 
@@ -29,5 +30,7 @@ unless ($opt->auto) {
   # Nicer logs if someone is looking at it.
   $Logger = $Logger->proxy({ proxy_prefix => 'mint-tag | '});
 }
+
+$Logger->set_debug(1) if $opt->verbose;
 
 App::MintTag->from_config_file($opt->config)->mint_tag($opt->auto);
