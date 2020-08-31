@@ -141,6 +141,8 @@ sub ensure_initial_prep ($self) {
     die "local path $dir does not exist! (maybe you should set clone = true)\n"
       unless $self->config->should_clone;
 
+    # Go to the parent directory before cloning.
+    $dir->parent->mkpath unless $dir->parent->is_dir;
     chdir $dir->parent or die "Couldn't chdir to $dir\'s parent!\n";
 
     $Logger->log(["cloning into $dir from %s", $self->upstream_base]);
