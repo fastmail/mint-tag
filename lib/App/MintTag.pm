@@ -105,6 +105,36 @@ sub mint_tag ($self, $auto_mode = 0) {
   };
 }
 
+# Tag an arbitrary sha according to the config file. This bails unless there is
+# exactly one step in config with a defined tag_prefix.
+sub tag_arbitrary_sha ($self, $sha) {
+  my $num_prefixes = 0;
+  my $tagging_step;
+
+  for my $step ($self->config->steps) {
+    if ($step->tag_prefix) {
+      $num_prefixes++;
+      $tagging_step = $step;
+    }
+  }
+
+  unless ($num_prefixes == 1) {
+    die "refusing to tag sha; config file is ambiguous about how to tag\n";
+  }
+
+  # Now, we can go. The plan is: set up, check out the tag, then tag it and
+  # push it.
+  $self->prepare_local_directory;
+
+  run_git('checkout', $sha);
+  run_git('submodule', 'update');
+
+  my $tag = $self->maybe_tag_commit($tagging_step);
+  $self->maybe_push($tagging_step, $tag);
+
+  $self->finalize;
+}
+
 # Change into our directory, check out the correct branch, and make sure we
 # start from a clean slate.
 sub prepare_local_directory ($self) {

@@ -63,7 +63,8 @@ sub BUILD ($self, $arg) {
 has _merge_requests => (
   is => 'ro',
   init_arg => undef,
-  writer => 'set_merge_requests'
+  default => sub { [] },
+  writer => 'set_merge_requests',
 );
 
 sub merge_requests { $_[0]->_merge_requests->@* }

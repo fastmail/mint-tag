@@ -18,12 +18,17 @@ use Getopt::Long::Descriptive;
 my ($opt, $usage) = describe_options(
   '%c %o',
   [ 'config|c=s', 'config file to use', { required => 1 } ],
+  [ 'sha=s',      'do not do any merging, just tag this sha' ],
   [ 'auto',       'do not run in interactive mode' ],
   [ 'verbose|v',  'turn on debug logging' ],
   [ 'help|h',     'show help and exit', { shortcircuit => 1 } ],
 );
 
 print($usage->text), exit if $opt->help;
+
+if ($opt->sha && $opt->auto) {
+  $usage->die({ pre_text => "error: --sha must be run in manual mode\n"});
+}
 
 local $Logger = $Logger;
 unless ($opt->auto) {
@@ -33,4 +38,11 @@ unless ($opt->auto) {
 
 $Logger->set_debug(1) if $opt->verbose;
 
-App::MintTag->from_config_file($opt->config)->mint_tag($opt->auto);
+my $minttag = App::MintTag->from_config_file($opt->config);
+
+if ($opt->sha) {
+  $minttag->tag_arbitrary_sha($opt->sha);
+  exit 0;
+}
+
+$minttag->mint_tag($opt->auto);
