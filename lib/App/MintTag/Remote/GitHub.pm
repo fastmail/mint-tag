@@ -8,6 +8,7 @@ use experimental qw(postderef signatures);
 with 'App::MintTag::Remote';
 
 use LWP::UserAgent;
+use Try::Tiny;
 use URI;
 
 use App::MintTag::Logger '$Logger';
@@ -26,6 +27,12 @@ has ua => (
 
     return $ua;
   },
+);
+
+has trusted_org_memberships => (
+  is => 'ro',
+  lazy => 1,
+  default => sub { {} },
 );
 
 sub uri_for ($self, $part, $query = {}) {
@@ -125,6 +132,8 @@ sub obtain_clone_url ($self) {
 }
 
 sub usernames_for_org ($self, $name) {
+  $self->assert_org_membership($name);
+
   my $members = $self->http_get(sprintf("%s/orgs/%s/members",
     $self->api_url,
     $name,
@@ -135,6 +144,24 @@ sub usernames_for_org ($self, $name) {
   }
 
   return map {; $_->{login} } @$members;
+}
+
+sub assert_org_membership ($self, $name) {
+  return if $self->trusted_org_memberships->{$name};
+
+  my $res = try {
+    $self->http_get(sprintf("%s/user/memberships/orgs/%s",
+      $self->api_url,
+      $name,
+    ));
+  } catch {
+    die "Error getting organization members from Github; are you a member of org '$name'?\n";
+  };
+
+  die "You don't seem to be a member of org '$name'; giving up."
+    unless $res->{role} =~ /^(member|admin)$/;
+
+  $self->trusted_org_memberships->{$name} = 1;
 }
 
 1;
