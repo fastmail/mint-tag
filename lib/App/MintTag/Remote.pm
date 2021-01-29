@@ -49,6 +49,12 @@ has clone_url => (
   builder => 'obtain_clone_url',
 );
 
+has trusted_org_memberships => (
+  is => 'ro',
+  lazy => 1,
+  default => sub { {} },
+);
+
 sub http_get ($self, $url) {
   my $res = $self->ua->get($url);
 

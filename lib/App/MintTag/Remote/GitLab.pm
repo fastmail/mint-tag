@@ -9,6 +9,7 @@ with 'App::MintTag::Remote';
 
 use List::Util qw(uniq);
 use LWP::UserAgent;
+use Try::Tiny;
 use URI;
 use URI::Escape qw(uri_escape);
 
@@ -22,6 +23,15 @@ has ua => (
     my $ua = LWP::UserAgent->new;
     $ua->default_header('Private-Token' => $self->api_key);
     return $ua;
+  },
+);
+
+has my_user_id => (
+  is => 'ro',
+  lazy => 1,
+  default => sub ($self) {
+    my $me = $self->http_get(sprintf("%s/user", $self->api_url));
+    return $me->{id};
   },
 );
 
@@ -107,6 +117,8 @@ sub obtain_clone_url ($self) {
 }
 
 sub usernames_for_org ($self, $name) {
+  $self->assert_org_membership($name);
+
   my $members = $self->http_get(sprintf("%s/groups/%s/members?per_page=100",
     $self->api_url,
     $name,
@@ -119,6 +131,28 @@ sub usernames_for_org ($self, $name) {
   return map  {; $_->{username} }
          grep {; $_->{state} eq 'active' }
          @$members;
+}
+
+sub assert_org_membership ($self, $name) {
+  return if $self->trusted_org_memberships->{$name};
+
+  # Grab our auth info, then check if we're in the trusted group.
+  my $me_id = $self->my_user_id;
+
+  my $member = try {
+    $self->http_get(sprintf("%s/groups/%s/members/all/%s",
+      $self->api_url,
+      uri_escape($name),
+      $me_id,
+    ));
+  } catch {
+    die "Error getting organization members from GitLab; are you a member of org '$name'?\n";
+  };
+
+  die "You don't seem to be a member of org '$name'; giving up."
+    unless $member->{access_level} >= 10;  # 10 == "guest"
+
+  $self->trusted_org_memberships->{$name} = 1;
 }
 
 1;

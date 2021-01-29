@@ -29,12 +29,6 @@ has ua => (
   },
 );
 
-has trusted_org_memberships => (
-  is => 'ro',
-  lazy => 1,
-  default => sub { {} },
-);
-
 sub uri_for ($self, $part, $query = {}) {
   my $uri = URI->new(sprintf(
     "%s/repos/%s%s",
