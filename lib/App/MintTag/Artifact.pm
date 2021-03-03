@@ -53,6 +53,7 @@ has step_data => (
       for my $mr ($step->merge_requests) {
         push $data->{merge_requests}->@*, {
           number => $mr->number,
+          title  => $mr->title,
           sha    => $mr->sha,
           merge_base => $mr->merge_base,
           patch_id   => $mr->patch_id,
@@ -85,9 +86,13 @@ sub as_toml ($self) {
     push @lines, sprintf('remote = "%s"', $step->{remote});
 
     for my $mr ($step->{merge_requests}->@*) {
+      my $title = $mr->{title};
+      $title =~ s/"/\\"/g;  # bad escaping is bad
+
       push @lines, '';
       push @lines, sprintf('  [[build_steps.merge_requests]]');
       push @lines, sprintf('  number = "%s"',     $mr->{number});
+      push @lines, sprintf('  title = "%s"',      $title);
       push @lines, sprintf('  sha = "%s"',        $mr->{sha});
       push @lines, sprintf('  merge_base = "%s"', $mr->{merge_base});
       push @lines, sprintf('  patch_id = "%s"',   $mr->{patch_id});
