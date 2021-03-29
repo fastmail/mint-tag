@@ -141,7 +141,7 @@ sub usernames_for_org ($self, $name) {
 }
 
 sub assert_org_membership ($self, $name) {
-  return if $self->trusted_org_memberships->{$name};
+  return if $self->is_member_of_org($name);
 
   my $res = try {
     $self->http_get(sprintf("%s/user/memberships/orgs/%s",
@@ -155,7 +155,7 @@ sub assert_org_membership ($self, $name) {
   die "You don't seem to be a member of org '$name'; giving up."
     unless $res->{role} =~ /^(member|admin)$/;
 
-  $self->trusted_org_memberships->{$name} = 1;
+  $self->note_org_membership($name);
 }
 
 1;

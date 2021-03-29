@@ -49,11 +49,14 @@ has clone_url => (
   builder => 'obtain_clone_url',
 );
 
-has trusted_org_memberships => (
+has _org_memberships => (
   is => 'ro',
   lazy => 1,
   default => sub { {} },
 );
+
+sub is_member_of_org    ($self, $name) { $self->_org_memberships->{$name}     }
+sub note_org_membership ($self, $name) { $self->_org_memberships->{$name} = 1 }
 
 sub http_get ($self, $url) {
   my $res = $self->ua->get($url);
