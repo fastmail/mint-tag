@@ -64,6 +64,11 @@ has state => (
   is => 'ro',
 );
 
+has has_been_rebased_locally => (
+  is => 'rw',
+  default => 0,
+);
+
 sub as_fetch_args ($self) {
   return ($self->fetch_spec, $self->ref_name);
 }
@@ -101,6 +106,8 @@ sub rebase ($self, $new_base) {
 
   my $patch_id = compute_patch_id($new_base, $new_sha);
   $self->set_patch_id($patch_id);
+
+  $self->has_been_rebased_locally(1);
 
   return 1;
 }

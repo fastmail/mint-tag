@@ -368,6 +368,40 @@ sub check_existing_tags($self, $prefix, $sha) {
 }
 
 sub maybe_push ($self, $step, $tagname = undef) {
+  # We do this _before_ pushing the merged branch, otherwise GitHub closes
+  # them with status "closed" and not status "merged".
+  if ($step->force_push_rebased_branches) {
+    for my $mr ($step->merge_requests) {
+      next unless $mr->has_been_rebased_locally;
+
+      my $push_spec = join q{:}, $mr->sha, $mr->branch_name;
+
+      try {
+        $Logger->log(["force-pushing branch to %s/%s",
+          $mr->remote_name,
+          $mr->branch_name,
+        ]);
+
+        run_git('push', '--force-with-lease', $mr->remote_name, $push_spec);
+      } catch {
+        my $err = $_;
+
+        # NOTE: I am erring on the side of caution in making this fatal.
+        # Arguably, it doesn't *need* to be, but what I don't want is for us
+        # to fail to force-push to a fork, then succeed in pushing to a merge
+        # to the golden repo, which would leave the MR as open and tagged, and
+        # potentially included again in future builds, when it fact it had
+        # already been merged. -- michael, 2021-07-28
+        $Logger->log_fatal([
+          "could not force-push to %s/%s: %s",
+          $mr->remote_name,
+          $mr->branch_name,
+          $err,
+        ])
+      };
+    }
+  }
+
   if (my $remote = $step->push_tag_to) {
     unless (length $tagname) {
       $Logger->log_fatal(["cannot push empty tag to remote %s!", $remote->name]);
