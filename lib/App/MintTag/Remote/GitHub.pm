@@ -109,15 +109,15 @@ sub _mr_from_raw ($self, $raw) {
   my $number = $raw->{number};
 
   return App::MintTag::MergeRequest->new({
-    remote     => $self,
-    number     => $number,
-    author     => $raw->{user}->{login},
-    title      => $raw->{title},
-    fetch_spec => $self->name,
-    refname    => "pull/$number/head",
-    sha        => $raw->{head}->{sha},
-    state      => $raw->{state},
-    web_url    => $raw->{html_url},
+    remote      => $self,
+    number      => $number,
+    author      => $raw->{user}->{login},
+    title       => $raw->{title},
+    fetch_spec  => $self->name,
+    ref_name    => "pull/$number/head",
+    sha         => $raw->{head}->{sha},
+    state       => $raw->{state},
+    web_url     => $raw->{html_url},
     branch_name => $raw->{head}->{ref},
   });
 }

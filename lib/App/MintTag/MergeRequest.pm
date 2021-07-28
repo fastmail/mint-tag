@@ -15,41 +15,15 @@ has remote => (
   },
 );
 
-has number => (
-  is => 'ro',
-  required => 1,
-);
-
-has author => (
-  is => 'ro',
-  required => 1,
-);
-
-has title => (
-  is => 'ro',
-  required => 1,
-);
-
-# Maybe: not required, and maybe we want something different, but will wait
-# and see. All this is really here to do is so that eventually we can say
-# git fetch $some_string that will fetch and set FETCH_HEAD
-
-has fetch_spec => (
-  is => 'ro',
-  required => 1,
-);
-
-has refname => (
-  is => 'ro',
-  required => 1,
-);
-
-has branch_name => (
-  is => 'ro',
-  required => 1,
-);
-
-has web_url => (
+has [qw(
+  author
+  branch_name
+  fetch_spec
+  number
+  ref_name
+  title
+  web_url
+)] => (
   is => 'ro',
   required => 1,
 );
@@ -91,7 +65,7 @@ has state => (
 );
 
 sub as_fetch_args ($self) {
-  return ($self->fetch_spec, $self->refname);
+  return ($self->fetch_spec, $self->ref_name);
 }
 
 sub oneline_desc ($self) {
