@@ -44,6 +44,16 @@ has refname => (
   required => 1,
 );
 
+has branch_name => (
+  is => 'ro',
+  required => 1,
+);
+
+has web_url => (
+  is => 'ro',
+  required => 1,
+);
+
 has sha => (
   is => 'ro',
   required => 1,
@@ -96,6 +106,15 @@ sub oneline_desc ($self) {
 # Silly, but I've now typed this like 8 times, so.
 sub as_commit_message ($self) {
   return "Merge " . $self->oneline_desc;
+}
+
+sub as_multiline_commit_message ($self, $target_branch) {
+  return sprintf(
+    "Merge branch '%s' into '%s'\n\nSee %s\n",
+    $self->branch_name,
+    $target_branch,
+    $self->web_url,
+  );
 }
 
 sub rebase ($self, $new_base) {

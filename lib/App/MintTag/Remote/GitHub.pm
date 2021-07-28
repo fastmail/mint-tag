@@ -117,6 +117,8 @@ sub _mr_from_raw ($self, $raw) {
     refname    => "pull/$number/head",
     sha        => $raw->{head}->{sha},
     state      => $raw->{state},
+    web_url    => $raw->{html_url},
+    branch_name => $raw->{head}->{ref},
   });
 }
 

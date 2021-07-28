@@ -108,6 +108,8 @@ sub _mr_from_raw ($self, $raw) {
     refname    => "merge-requests/$number/head",
     sha        => $raw->{sha},
     state      => $raw->{state},
+    web_url    => $raw->{web_url},
+    branch_name => $raw->{source_branch},
   });
 }
 

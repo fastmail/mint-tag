@@ -238,19 +238,22 @@ sub merge_strategy_semilinear ($self, $step) {
     try {
       $mr->rebase($new_base);
 
+      my $msg = $mr->as_multiline_commit_message($self->target_branch_name);
+
       run_git('checkout', $self->target_branch_name);;
-      run_git('merge', '--no-ff', '-m' => $mr->as_commit_message, $mr->sha);
+      run_git('merge', '--no-ff', '-m' => $msg, $mr->sha);
       run_git('submodule', 'update');
 
       $Logger->log(["rebased and merged %s into %s", $mr->ident, $self->target_branch_name ]);
     } catch {
       my $e = $_;
       $Logger->log_fatal([
-        "Error rebasing %s!%s (%s) onto HEAD (%s); bailing out!",
+        "Error rebasing %s!%s (%s) onto HEAD (%s); bailing out! Error: %s",
         $mr->remote_name,
         $mr->number,
         $mr->sha,
         substr($new_base, 0, 8),
+        $e,
       ])
     };
   }
