@@ -44,9 +44,9 @@ has merge_base => (
 
 our $ANNOTATION_VERSION = 1;
 
-sub from_config_file ($class, $config_file) {
+sub from_config_file ($class, $config_file, $repo = undef) {
   return $class->new({
-    config => App::MintTag::Config->from_file($config_file),
+    config => App::MintTag::Config->from_file($config_file, $repo),
   });
 };
 

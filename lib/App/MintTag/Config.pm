@@ -5,14 +5,19 @@ package App::MintTag::Config;
 use Moo;
 use experimental qw(signatures postderef);
 
+use Path::Tiny qw(path);
 use TOML::Parser;
 
 use App::MintTag::BuildStep;
 use App::MintTag::Remote::GitHub;
 use App::MintTag::Remote::GitLab;
 
-sub from_file ($class, $file) {
+sub from_file ($class, $file, $repo = undef) {
   my $config = TOML::Parser->new->parse_file($file);
+
+  if ($config->{meta}{release_mode}) {
+    $config = $class->_munge_config_for_release_mode($config, $repo);
+  }
 
   my $remotes = $class->_assemble_remotes($config->{remote});
   my $steps = $class->_assemble_steps($config->{build_steps}, $remotes);
@@ -20,6 +25,7 @@ sub from_file ($class, $file) {
 
   return $class->new({
     cfg                => $config,
+    is_release_mode    => !! $config->{meta}{release_mode},
     committer_name     => $config->{meta}{committer_name},
     committer_email    => $config->{meta}{committer_email},
     local_repo_dir     => $local_conf->{path},
@@ -35,6 +41,11 @@ has _cfg => (
   is => 'ro',
   required => 1,
   init_arg => 'cfg',
+);
+
+has is_release_mode => (
+  is => 'ro',
+  default => 0,
 );
 
 has committer_name => (
@@ -122,6 +133,39 @@ sub remote_for_url ($self, $clone_url) {
 
   # Not dying here, I think.
   return;
+}
+
+# In release mode, we do things a little differently
+# - there is only one step
+# - we assume as much as possible given the config we have
+sub _munge_config_for_release_mode ($class, $config, $repo_name) {
+  my $step_config = delete $config->{release_mode};
+
+  die "missing release_mode config\n" unless $step_config;
+  die "missing remote name for release_mode\n" unless $step_config->{remote};
+  die "missing label name for release_mode\n"  unless $step_config->{label};
+  die "release_mode config cannot have build_steps" if $config->{build_steps};
+
+  # stick our repo name into remote conf
+  my $remote_name = $step_config->{remote};
+  $config->{remote}{$remote_name}{repo} //= $repo_name;
+
+  die "could not determine remote repo to use for release mode\n"
+    unless $config->{remote}{$remote_name}{repo};
+
+  $config->{local}{clone} = 1;
+
+  $config->{build_steps} = [{
+    name => 'build-release-branch',
+    push_spec => {
+      remote => $step_config->{remote},
+      use_matching_branch => 1,
+      force => 0,
+    },
+    %$step_config,
+  }];
+
+  return $config;
 }
 
 sub _assemble_remotes ($class, $remote_config) {
@@ -218,6 +262,8 @@ sub _assemble_local_conf ($class, $config, $remotes) {
 
     $local_conf->{path} //= "" . path($base_dir)->child($remote->repo);
   }
+
+  die "could not determine local path to use\n" unless $local_conf->{path};
 
   return $local_conf;
 }
