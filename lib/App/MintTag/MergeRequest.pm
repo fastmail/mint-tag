@@ -15,31 +15,15 @@ has remote => (
   },
 );
 
-has number => (
-  is => 'ro',
-  required => 1,
-);
-
-has author => (
-  is => 'ro',
-  required => 1,
-);
-
-has title => (
-  is => 'ro',
-  required => 1,
-);
-
-# Maybe: not required, and maybe we want something different, but will wait
-# and see. All this is really here to do is so that eventually we can say
-# git fetch $some_string that will fetch and set FETCH_HEAD
-
-has fetch_spec => (
-  is => 'ro',
-  required => 1,
-);
-
-has refname => (
+has [qw(
+  author
+  branch_name
+  fetch_spec
+  number
+  ref_name
+  title
+  web_url
+)] => (
   is => 'ro',
   required => 1,
 );
@@ -80,8 +64,13 @@ has state => (
   is => 'ro',
 );
 
+has has_been_rebased_locally => (
+  is => 'rw',
+  default => 0,
+);
+
 sub as_fetch_args ($self) {
-  return ($self->fetch_spec, $self->refname);
+  return ($self->fetch_spec, $self->ref_name);
 }
 
 sub oneline_desc ($self) {
@@ -98,6 +87,15 @@ sub as_commit_message ($self) {
   return "Merge " . $self->oneline_desc;
 }
 
+sub as_multiline_commit_message ($self, $target_branch) {
+  return sprintf(
+    "Merge branch '%s' into '%s'\n\nSee %s\n",
+    $self->branch_name,
+    $target_branch,
+    $self->web_url,
+  );
+}
+
 sub rebase ($self, $new_base) {
   run_git('rebase', $new_base, $self->sha);   # might die, and should!
 
@@ -108,6 +106,8 @@ sub rebase ($self, $new_base) {
 
   my $patch_id = compute_patch_id($new_base, $new_sha);
   $self->set_patch_id($patch_id);
+
+  $self->has_been_rebased_locally(1);
 
   return 1;
 }

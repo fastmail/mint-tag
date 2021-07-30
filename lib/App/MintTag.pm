@@ -75,8 +75,16 @@ sub mint_tag ($self, $auto_mode = 0) {
   try {
     for my $step ($self->config->steps) {
       local $Logger = $step->proxy_logger;
-      $self->maybe_rebase($step);
-      $self->merge_mrs([ $step->merge_requests ]);
+
+      local $ENV{GIT_AUTHOR_NAME}     = $self->config->committer_name;
+      local $ENV{GIT_AUTHOR_EMAIL}    = $self->config->committer_email;
+      local $ENV{GIT_COMMITTER_NAME}  = $self->config->committer_name;
+      local $ENV{GIT_COMMITTER_EMAIL} = $self->config->committer_email;
+
+      my $strategy = $step->use_semilinear_merge ? 'semilinear' : 'octopus';
+      my $merge_method = "merge_strategy_$strategy";
+
+      $self->$merge_method($step);
 
       my $tag = $self->maybe_tag_commit($step);
       $self->maybe_push($step, $tag);
@@ -222,14 +230,44 @@ sub _ensure_remotes ($self) {
   }
 }
 
+# for every MR in turn, rebase it onto now-main branch, then git-commit --no-ff
+sub merge_strategy_semilinear ($self, $step) {
+  for my $mr ($step->merge_requests) {
+    my $new_base = run_git('rev-parse', 'HEAD');
+
+    try {
+      $mr->rebase($new_base);
+
+      my $msg = $mr->as_multiline_commit_message($self->target_branch_name);
+
+      run_git('checkout', $self->target_branch_name);;
+      run_git('merge', '--no-ff', '-m' => $msg, $mr->sha);
+      run_git('submodule', 'update');
+
+      $Logger->log(["rebased and merged %s into %s", $mr->ident, $self->target_branch_name ]);
+    } catch {
+      my $e = $_;
+      $Logger->log_fatal([
+        "Error rebasing %s!%s (%s) onto HEAD (%s); bailing out! Error: %s",
+        $mr->remote_name,
+        $mr->number,
+        $mr->sha,
+        substr($new_base, 0, 8),
+        $e,
+      ])
+    };
+  }
+}
+
+sub merge_strategy_octopus ($self, $step) {
+  $self->maybe_rebase($step);
+  $self->octopus_merge_mrs([ $step->merge_requests ]);
+}
+
 sub maybe_rebase ($self, $step) {
   return unless $step->rebase;
 
   my $new_base = run_git('rev-parse', 'HEAD');
-
-  # We want some evidence that this rebase was performed automatically.
-  local $ENV{GIT_COMMITTER_NAME}  = $self->config->committer_name;
-  local $ENV{GIT_COMMITTER_EMAIL} = $self->config->committer_email;
 
   # rebase every MR onto its base
   for my $mr ($step->merge_requests) {
@@ -251,7 +289,7 @@ sub maybe_rebase ($self, $step) {
   run_git('checkout', $new_base);
 }
 
-sub merge_mrs ($self, $mrs) {
+sub octopus_merge_mrs ($self, $mrs) {
   try {
     $self->_octopus_merge($mrs);
   } catch {
@@ -330,6 +368,40 @@ sub check_existing_tags($self, $prefix, $sha) {
 }
 
 sub maybe_push ($self, $step, $tagname = undef) {
+  # We do this _before_ pushing the merged branch, otherwise GitHub closes
+  # them with status "closed" and not status "merged".
+  if ($step->force_push_rebased_branches) {
+    for my $mr ($step->merge_requests) {
+      next unless $mr->has_been_rebased_locally;
+
+      my $push_spec = join q{:}, $mr->sha, $mr->branch_name;
+
+      try {
+        $Logger->log(["force-pushing branch to %s/%s",
+          $mr->remote_name,
+          $mr->branch_name,
+        ]);
+
+        run_git('push', '--force-with-lease', $mr->remote_name, $push_spec);
+      } catch {
+        my $err = $_;
+
+        # NOTE: I am erring on the side of caution in making this fatal.
+        # Arguably, it doesn't *need* to be, but what I don't want is for us
+        # to fail to force-push to a fork, then succeed in pushing to a merge
+        # to the golden repo, which would leave the MR as open and tagged, and
+        # potentially included again in future builds, when it fact it had
+        # already been merged. -- michael, 2021-07-28
+        $Logger->log_fatal([
+          "could not force-push to %s/%s: %s",
+          $mr->remote_name,
+          $mr->branch_name,
+          $err,
+        ])
+      };
+    }
+  }
+
   if (my $remote = $step->push_tag_to) {
     unless (length $tagname) {
       $Logger->log_fatal(["cannot push empty tag to remote %s!", $remote->name]);
@@ -397,11 +469,7 @@ sub _octopus_merge ($self, $mrs) {
   # use the latest one we got, but never commit at epoch zero!
   my $stamp = $latest ? "$latest -0000" : undef;
 
-  local $ENV{GIT_AUTHOR_NAME}     = $self->config->committer_name;
-  local $ENV{GIT_AUTHOR_EMAIL}    = $self->config->committer_email;
   local $ENV{GIT_AUTHOR_DATE}     = $stamp;
-  local $ENV{GIT_COMMITTER_NAME}  = $self->config->committer_name;
-  local $ENV{GIT_COMMITTER_EMAIL} = $self->config->committer_email;
   local $ENV{GIT_COMMITTER_DATE}  = $stamp;
 
   $Logger->log("octopus merging $n $mrs_eng");

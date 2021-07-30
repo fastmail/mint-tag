@@ -53,6 +53,16 @@ has rebase => (
   default => 0,
 );
 
+has use_semilinear_merge => (
+  is => 'ro',
+  default => 0,
+);
+
+has force_push_rebased_branches => (
+  is => 'ro',
+  default => 0,
+);
+
 sub BUILD ($self, $arg) {
   if ($self->push_tag_to && ! $self->tag_prefix) {
     my $name = $self->name;
