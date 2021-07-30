@@ -41,7 +41,11 @@ has push_tag_to => (
   is => 'ro',
 );
 
-# Hashref: { remote => $remote, branch => 'branchname', force => $bool }
+# Hashref: {
+#   remote => $remote,
+#   force => $bool
+#   branch => 'branchname' OR use_matching_branch => 1,
+# }
 has push_spec => (
   is => 'ro',
   predicate => 'has_push_spec',

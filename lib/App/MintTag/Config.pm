@@ -170,8 +170,10 @@ sub _assemble_steps ($class, $step_config, $remotes) {
     }
 
     if (my $spec = $step->{push_spec}) {
-      die "push_spec must have 'remote' and 'branch' keys\n"
-        unless $spec->{remote} && $spec->{branch};
+      die "push_spec must have 'remote' key\n" unless $spec->{remote};
+
+      die "push_spec must have either 'branch' or 'use_matching_branch' keys"
+        unless $spec->{branch} xor $spec->{use_matching_branch};
 
       my $remote = $remotes->{ $spec->{remote} };
       die "No matching remote found for $spec->{remote}!\n" unless $remote;

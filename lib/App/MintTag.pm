@@ -415,12 +415,15 @@ sub maybe_push ($self, $step, $tagname = undef) {
     my $spec         = $step->push_spec;
     my $remote       = $spec->{remote};
     my $should_force = $spec->{force};
-    my $refspec      = join q{:}, 'HEAD', "refs/heads/$spec->{branch}";
+    my $branch       = $spec->{branch}              ? $spec->{branch}
+                     : $spec->{use_matching_branch} ? $self->target_branch_name
+                     : die "could not figure out remote branch to push!";
+    my $refspec      = join q{:}, 'HEAD', "refs/heads/$branch";
 
     $Logger->log(["%spushing branch to remote %s/%s",
       $should_force ? 'force-' : '',
       $remote->name,
-      $spec->{branch},
+      $branch,
     ]);
 
     run_git(
