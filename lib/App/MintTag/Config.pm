@@ -16,15 +16,16 @@ sub from_file ($class, $file) {
 
   my $remotes = $class->_assemble_remotes($config->{remote});
   my $steps = $class->_assemble_steps($config->{build_steps}, $remotes);
+  my $local_conf = $class->_assemble_local_conf($config, $remotes);
 
   return $class->new({
     cfg                => $config,
     committer_name     => $config->{meta}{committer_name},
     committer_email    => $config->{meta}{committer_email},
-    local_repo_dir     => $config->{local}{path},
-    target_branch_name => $config->{local}{target_branch},
-    upstream_base      => $config->{local}{upstream_base},
-    should_clone       => $config->{local}{clone},
+    local_repo_dir     => $local_conf->{path},
+    target_branch_name => $local_conf->{target_branch},
+    upstream_base      => $local_conf->{upstream_base},
+    should_clone       => $local_conf->{clone},
     remotes            => $remotes,
     steps              => $steps,
   });
@@ -189,6 +190,36 @@ sub _assemble_steps ($class, $step_config, $remotes) {
   }
 
   return \@steps;
+}
+
+sub _assemble_local_conf ($class, $config, $remotes) {
+  my $local_conf = $config->{local};
+
+  # We must have upstream_base OR (upstream_remote && use_upstream_default_branch)
+  if ($local_conf->{upstream_remote} && $local_conf->{use_upstream_default_branch}) {
+    my $upstream_name = $local_conf->{upstream_remote};
+
+    my $remote = $remotes->{$upstream_name}
+      or die "cannot find remote for upstream $upstream_name\n";
+
+    my $default_branch = $remote->get_default_branch_name;
+    $local_conf->{upstream_base} = "$upstream_name/$default_branch";
+    $local_conf->{target_branch} = $default_branch;
+  }
+
+  die "cannot figure out upstream base\n" unless $local_conf->{upstream_base};
+
+  if (my $base_dir = delete $local_conf->{base_dir}) {
+    # Generate a local path
+    my ($upstream) = split m{/}, $local_conf->{upstream_base};
+
+    my $remote = $remotes->{$upstream}
+      or die "cannot find remote for upstream $upstream\n";
+
+    $local_conf->{path} //= "" . path($base_dir)->child($remote->repo);
+  }
+
+  return $local_conf;
 }
 
 1;

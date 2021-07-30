@@ -11,6 +11,8 @@ requires 'obtain_clone_url';    # get_clone_url was confusing...
 requires 'get_mrs_for_label';
 requires 'get_mr';
 requires 'ua';
+requires 'get_default_branch_name';
+requires '_fetch_raw_repo_data';
 
 has name => (
   is => 'ro',
@@ -53,6 +55,12 @@ has _org_memberships => (
   is => 'ro',
   lazy => 1,
   default => sub { {} },
+);
+
+has _raw_repo_data => (
+  is => 'ro',
+  lazy => 1,
+  builder => '_fetch_raw_repo_data',
 );
 
 sub is_member_of_org    ($self, $name) { $self->_org_memberships->{$name}     }
