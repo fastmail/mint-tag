@@ -50,7 +50,7 @@ sub from_config_file ($class, $config_file, $repo = undef) {
   });
 };
 
-sub mint_tag ($self, $auto_mode = 0) {
+sub mint_tag ($self, $auto_mode = 0, $mr_numbers = []) {
   if ($auto_mode) {
     $self->interactive(0);
   }
@@ -60,7 +60,7 @@ sub mint_tag ($self, $auto_mode = 0) {
   # Fetch
   for my $step ($self->config->steps) {
     local $Logger = $step->proxy_logger;
-    $step->fetch_mrs($self->upstream_base);   # to set merge-base
+    $step->fetch_mrs($self->upstream_base, $mr_numbers);   # to set merge-base
   }
 
   if ($self->interactive) {

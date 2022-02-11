@@ -24,6 +24,7 @@ my ($opt, $usage) = describe_options(
   [ 'auto',       'do not run in interactive mode' ],
   [ 'verbose|v',  'turn on debug logging' ],
   [ 'repo|r=s',   'repo to use (if not in config)' ],
+  [ 'mr|pr=s@',   'if given, only allow these merge request numbers' ],
   [ 'help|h',     'show help and exit', { shortcircuit => 1 } ],
 );
 
@@ -42,4 +43,4 @@ my $minttag = App::MintTag->from_config_file($opt->config, $opt->repo);
 die "can only run $0 with a release-mode config"
   unless $minttag->config->is_release_mode;
 
-$minttag->mint_tag($opt->auto);
+$minttag->mint_tag($opt->auto, $opt->mr // []);

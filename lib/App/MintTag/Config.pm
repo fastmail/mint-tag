@@ -141,9 +141,9 @@ sub remote_for_url ($self, $clone_url) {
 sub _munge_config_for_release_mode ($class, $config, $repo_name) {
   my $step_config = delete $config->{release_mode};
 
-  die "missing release_mode config\n" unless $step_config;
+  die "missing release_mode config\n"          unless $step_config;
   die "missing remote name for release_mode\n" unless $step_config->{remote};
-  die "missing label name for release_mode\n"  unless $step_config->{label};
+  die "missing label name for release_mode\n"  unless defined $step_config->{label};
   die "release_mode config cannot have build_steps" if $config->{build_steps};
 
   # stick our repo name into remote conf

@@ -87,13 +87,18 @@ sub proxy_logger ($self) {
   return $Logger->proxy({proxy_prefix => $self->name . ': ' });
 }
 
-sub fetch_mrs ($self, $merge_base) {
-  $Logger->log([ "fetching MRs from remote %s with label %s",
-    $self->remote->name,
-    $self->label,
-  ]);
-
+sub fetch_mrs ($self, $merge_base, $extra_mrs = []) {
   my @mrs = $self->remote->get_mrs_for_label($self->label, $self->trusted_org);
+
+  for my $mr_num (@$extra_mrs) {
+    $Logger->log([ "fetching extra MR: #%s, from remote %s",
+      $mr_num,
+      $self->remote->name,
+    ]);
+
+    push @mrs, $self->remote->get_mr($mr_num)
+  }
+
   $self->set_merge_requests(\@mrs);
 
   for my $mr ($self->merge_requests) {
