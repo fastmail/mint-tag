@@ -44,13 +44,13 @@ has merge_base => (
 
 our $ANNOTATION_VERSION = 1;
 
-sub from_config_file ($class, $config_file) {
+sub from_config_file ($class, $config_file, $repo = undef) {
   return $class->new({
-    config => App::MintTag::Config->from_file($config_file),
+    config => App::MintTag::Config->from_file($config_file, $repo),
   });
 };
 
-sub mint_tag ($self, $auto_mode = 0) {
+sub mint_tag ($self, $auto_mode = 0, $mr_numbers = []) {
   if ($auto_mode) {
     $self->interactive(0);
   }
@@ -60,7 +60,7 @@ sub mint_tag ($self, $auto_mode = 0) {
   # Fetch
   for my $step ($self->config->steps) {
     local $Logger = $step->proxy_logger;
-    $step->fetch_mrs($self->upstream_base);   # to set merge-base
+    $step->fetch_mrs($self->upstream_base, $mr_numbers);   # to set merge-base
   }
 
   if ($self->interactive) {
@@ -415,12 +415,15 @@ sub maybe_push ($self, $step, $tagname = undef) {
     my $spec         = $step->push_spec;
     my $remote       = $spec->{remote};
     my $should_force = $spec->{force};
-    my $refspec      = join q{:}, 'HEAD', "refs/heads/$spec->{branch}";
+    my $branch       = $spec->{branch}              ? $spec->{branch}
+                     : $spec->{use_matching_branch} ? $self->target_branch_name
+                     : die "could not figure out remote branch to push!";
+    my $refspec      = join q{:}, 'HEAD', "refs/heads/$branch";
 
     $Logger->log(["%spushing branch to remote %s/%s",
       $should_force ? 'force-' : '',
       $remote->name,
-      $spec->{branch},
+      $branch,
     ]);
 
     run_git(

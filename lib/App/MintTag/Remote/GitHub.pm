@@ -29,6 +29,11 @@ has ua => (
   },
 );
 
+sub _fetch_raw_repo_data ($self) {
+  my $repo = $self->http_get($self->uri_for(''));
+  return $repo;
+}
+
 sub uri_for ($self, $part, $query = {}) {
   my $uri = URI->new(sprintf(
     "%s/repos/%s%s",
@@ -123,8 +128,11 @@ sub _mr_from_raw ($self, $raw) {
 }
 
 sub obtain_clone_url ($self) {
-  my $repo = $self->http_get($self->uri_for(''));
-  return $repo->{ssh_url};
+  return $self->_raw_repo_data->{ssh_url};
+}
+
+sub get_default_branch_name ($self) {
+  return $self->_raw_repo_data->{default_branch};
 }
 
 sub usernames_for_org ($self, $name) {

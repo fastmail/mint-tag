@@ -5,12 +5,16 @@ package App::MintTag::Remote;
 use Moo::Role;
 use experimental qw(signatures postderef);
 
-use JSON::MaybeXS qw(decode_json);
+use JSON::MaybeXS qw(decode_json is_bool);
+
+use App::MintTag::Logger '$Logger';
 
 requires 'obtain_clone_url';    # get_clone_url was confusing...
 requires 'get_mrs_for_label';
 requires 'get_mr';
 requires 'ua';
+requires 'get_default_branch_name';
+requires '_fetch_raw_repo_data';
 
 has name => (
   is => 'ro',
@@ -53,6 +57,12 @@ has _org_memberships => (
   is => 'ro',
   lazy => 1,
   default => sub { {} },
+);
+
+has _raw_repo_data => (
+  is => 'ro',
+  lazy => 1,
+  builder => '_fetch_raw_repo_data',
 );
 
 sub is_member_of_org    ($self, $name) { $self->_org_memberships->{$name}     }
@@ -101,5 +111,24 @@ sub extract_link_header ($self, $http_res) {
 
   return \%links;
 }
+
+around get_mrs_for_label => sub ($orig, $self, $label, $trusted_org) {
+  # explicit false means "do not use label, require named MRs"
+  if (! $label && is_bool($label)) {
+    $Logger->log([
+      "not fetching MRs for remote %s, no label provided",
+      $self->name,
+    ]);
+
+    return;
+  }
+
+  $Logger->log([ "fetching MRs from remote %s with label %s",
+    $self->name,
+    $label,
+  ]);
+
+  return $self->$orig($label, $trusted_org);
+};
 
 1;

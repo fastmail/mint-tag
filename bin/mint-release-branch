@@ -1,0 +1,46 @@
+#!/usr/bin/env perl
+# PODNAME: mint-release-branch
+# ABSTRACT: build a release branch from merge requests
+
+use v5.20;
+use lib 'lib';
+use App::MintTag;
+
+binmode *STDOUT, ':encoding(UTF-8)';
+binmode *STDERR, ':encoding(UTF-8)';
+
+use App::MintTag::Logger '$Logger' => { init => {
+  ident     => 'mint-tag',
+  facility  => 'daemon',
+  to_stdout => 1,
+  log_pid   => 0,
+} };
+
+use Getopt::Long::Descriptive;
+
+my ($opt, $usage) = describe_options(
+  '%c %o',
+  [ 'config|c=s', 'config file to use', { required => 1 } ],
+  [ 'auto',       'do not run in interactive mode' ],
+  [ 'verbose|v',  'turn on debug logging' ],
+  [ 'repo|r=s',   'repo to use (if not in config)' ],
+  [ 'mr|pr=s@',   'if given, only allow these merge request numbers' ],
+  [ 'help|h',     'show help and exit', { shortcircuit => 1 } ],
+);
+
+print($usage->text), exit if $opt->help;
+
+local $Logger = $Logger;
+unless ($opt->auto) {
+  # Nicer logs if someone is looking at it.
+  $Logger = $Logger->proxy({ proxy_prefix => 'mint-tag | '});
+}
+
+$Logger->set_debug(1) if $opt->verbose;
+
+my $minttag = App::MintTag->from_config_file($opt->config, $opt->repo);
+
+die "can only run $0 with a release-mode config"
+  unless $minttag->config->is_release_mode;
+
+$minttag->mint_tag($opt->auto, $opt->mr // []);
