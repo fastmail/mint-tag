@@ -14,6 +14,7 @@ my %WriteMakefileArgs = (
   },
   "DISTNAME" => "App-MintTag",
   "EXE_FILES" => [
+    "bin/mint-release-branch",
     "bin/mint-tag"
   ],
   "LICENSE" => "perl",
