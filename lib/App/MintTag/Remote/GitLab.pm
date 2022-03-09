@@ -35,6 +35,12 @@ has my_user_id => (
   },
 );
 
+has _fork_ssh_urls => (
+  is => 'ro',
+  lazy => 1,
+  default => sub { {} },
+);
+
 sub _fetch_raw_repo_data ($self) {
   my $repo = $self->http_get($self->uri_for(''));
   return $repo;
@@ -104,12 +110,8 @@ sub get_mr ($self, $number) {
 sub _mr_from_raw ($self, $raw) {
   my $number = $raw->{iid};
 
-  # This is so jank, but I want to save an HTTP request
-  my $reference = $raw->{references}{full};   # michael/mint-tag!42
-  my $ssh_url = $self->obtain_clone_url;      # git@gitlab.com:fastmail/mint-tag.git
-  my ($ssh_base)  = split /:/, $ssh_url;
-  my ($push_spec) = split /!/, $reference;
-  my $force_push_url = "$ssh_base:$push_spec.git";
+  my $source_id = $raw->{source_project_id};
+  my $force_push_url = $self->ssh_url_for_project_id($source_id);
 
   return App::MintTag::MergeRequest->new({
     remote      => $self,
@@ -124,6 +126,28 @@ sub _mr_from_raw ($self, $raw) {
     branch_name => $raw->{source_branch},
     force_push_url => $force_push_url,
   });
+}
+
+sub ssh_url_for_project_id ($self, $project_id) {
+  my $have = $self->_fork_ssh_urls->{$project_id};
+  return $have if $have;
+
+  # special-case branches on the golden repo
+  my $ssh_url;
+
+  if ($project_id eq $self->_raw_repo_data->{id}) {
+    $ssh_url = $self->_raw_repo_data->{ssh_url_to_repo};
+  } else {
+    my $fork = $self->http_get(sprintf("%s/projects/%s",
+      $self->api_url,
+      $project_id,
+    ));
+
+    $ssh_url = $fork->{ssh_url_to_repo};
+  }
+
+  $self->_fork_ssh_urls->{$project_id} = $ssh_url;
+  return $ssh_url;
 }
 
 sub obtain_clone_url ($self) {
