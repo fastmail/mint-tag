@@ -6,6 +6,7 @@ use Moo;
 use experimental qw(postderef signatures);
 
 use App::MintTag::Util qw(run_git compute_patch_id);
+use Carp ();
 
 has remote => (
   is => 'ro',
@@ -69,6 +70,14 @@ has has_been_rebased_locally => (
   is => 'rw',
   default => 0,
 );
+
+sub BUILD ($self, $arg) {
+  if ( $self->remote->should_fetch_ssh_url_for_forks
+    && ! defined $self->force_push_url
+  ) {
+    Carp::confess("got no force_push_url and the remote requires them; this should not happen");
+  }
+}
 
 sub as_fetch_args ($self) {
   return ($self->fetch_spec, $self->ref_name);
