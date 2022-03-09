@@ -21,6 +21,7 @@ has [qw(
   fetch_spec
   number
   ref_name
+  force_push_url
   title
   web_url
 )] => (

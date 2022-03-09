@@ -104,6 +104,13 @@ sub get_mr ($self, $number) {
 sub _mr_from_raw ($self, $raw) {
   my $number = $raw->{iid};
 
+  # This is so jank, but I want to save an HTTP request
+  my $reference = $raw->{references}{full};   # michael/mint-tag!42
+  my $ssh_url = $self->obtain_clone_url;      # git@gitlab.com:fastmail/mint-tag.git
+  my ($ssh_base)  = split /:/, $ssh_url;
+  my ($push_spec) = split /!/, $reference;
+  my $force_push_url = "$ssh_base:$push_spec.git";
+
   return App::MintTag::MergeRequest->new({
     remote      => $self,
     number      => $number,
@@ -115,6 +122,7 @@ sub _mr_from_raw ($self, $raw) {
     state       => $raw->{state},
     web_url     => $raw->{web_url},
     branch_name => $raw->{source_branch},
+    force_push_url => $force_push_url,
   });
 }
 

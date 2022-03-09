@@ -124,6 +124,7 @@ sub _mr_from_raw ($self, $raw) {
     state       => $raw->{state},
     web_url     => $raw->{html_url},
     branch_name => $raw->{head}->{ref},
+    force_push_url => $raw->{head}->{repo}->{ssh_url},
   });
 }
 

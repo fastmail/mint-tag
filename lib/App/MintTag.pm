@@ -378,11 +378,11 @@ sub maybe_push ($self, $step, $tagname = undef) {
 
       try {
         $Logger->log(["force-pushing branch to %s/%s",
-          $mr->remote_name,
+          $mr->force_push_url,
           $mr->branch_name,
         ]);
 
-        run_git('push', '--force-with-lease', $mr->remote_name, $push_spec);
+        run_git('push', '--force', $mr->force_push_url, $push_spec);
       } catch {
         my $err = $_;
 
