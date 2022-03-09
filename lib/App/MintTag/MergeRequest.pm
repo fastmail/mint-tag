@@ -6,6 +6,7 @@ use Moo;
 use experimental qw(postderef signatures);
 
 use App::MintTag::Util qw(run_git compute_patch_id);
+use App::MintTag::Logger '$Logger';
 use Carp ();
 
 has remote => (
@@ -120,6 +121,36 @@ sub rebase ($self, $new_base) {
   $self->has_been_rebased_locally(1);
 
   return 1;
+}
+
+# Friggin' GitLab. When you force-push to an MR, there is often a lag between
+# the time you do so (with git) and the the time GitLab takes to notice it
+# (via http). That means that if you rebase an MR, force-push to the branch,
+# then immediately merge it and push to the golden repo, GitLab *won't notice*
+# and thus won't mark the MR as merged, but instead it stays open and says "no
+# changes," which sucks.
+sub wait_until_remote_head_is_correct ($self) {
+  my $number = $self->number;
+  my $want_sha = $self->sha;
+
+  $Logger->log([
+    "waiting for remote to notice that %s has been updated",
+    $self->ident,
+  ]);
+
+  for (0..30) {
+    my $check = $self->remote->get_mr($self->number);
+    return if $check->sha eq $want_sha;
+
+    sleep 2;  # :(
+  }
+
+  # If we get here, it's been 60s, and so let's just assume it will never
+  # succeed.
+  $Logger->log_fatal([
+    "remote head for %s not up to date after 30 attempts; giving up",
+    $self->ident,
+  ]);
 }
 
 1;

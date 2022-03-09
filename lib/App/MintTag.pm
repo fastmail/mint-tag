@@ -383,6 +383,8 @@ sub maybe_push ($self, $step, $tagname = undef) {
         ]);
 
         run_git('push', '--force', $mr->force_push_url, $push_spec);
+
+        $mr->wait_until_remote_head_is_correct;
       } catch {
         my $err = $_;
 
