@@ -132,6 +132,9 @@ sub ssh_url_for_project_id ($self, $project_id) {
   my $have = $self->_fork_ssh_urls->{$project_id};
   return $have if $have;
 
+  # Don't bother making an http call if nothing is ever going to use it
+  return unless $self->should_fetch_ssh_url_for_forks;
+
   # special-case branches on the golden repo
   my $ssh_url;
 

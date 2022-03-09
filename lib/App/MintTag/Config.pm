@@ -226,6 +226,12 @@ sub _assemble_steps ($class, $step_config, $remotes) {
       $spec->{remote} = $remote;  # replace with a real remote object
     }
 
+    # If we need to force-push to forks, we have to tell our remote to fetch
+    # the URLs we need.
+    if ($step->{force_push_rebased_branches}) {
+      $remote->should_fetch_ssh_url_for_forks(1);
+    }
+
     push @steps, App::MintTag::BuildStep->new({
       remote      => $remote,
       push_tag_to => $tag_remote,

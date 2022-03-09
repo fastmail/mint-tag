@@ -53,6 +53,11 @@ has clone_url => (
   builder => 'obtain_clone_url',
 );
 
+has should_fetch_ssh_url_for_forks => (
+  is => 'rw',
+  default => 0,
+);
+
 has _org_memberships => (
   is => 'ro',
   lazy => 1,

@@ -21,6 +21,7 @@ my %WriteMakefileArgs = (
   "MIN_PERL_VERSION" => "5.020000",
   "NAME" => "App::MintTag",
   "PREREQ_PM" => {
+    "Carp" => 0,
     "Data::Dumper::Concise" => 0,
     "DateTime" => 0,
     "Getopt::Long::Descriptive" => 0,
@@ -60,6 +61,7 @@ my %WriteMakefileArgs = (
 
 
 my %FallbackPrereqs = (
+  "Carp" => 0,
   "Data::Dumper::Concise" => 0,
   "DateTime" => 0,
   "ExtUtils::MakeMaker" => 0,
