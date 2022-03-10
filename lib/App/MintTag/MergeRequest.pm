@@ -108,7 +108,7 @@ sub as_multiline_commit_message ($self, $target_branch) {
 }
 
 sub rebase ($self, $new_base) {
-  run_git('rebase', $new_base, $self->sha);   # might die, and should!
+  run_git('rebase', '--force-rebase', $new_base, $self->sha);   # might die, and should!
 
   # we succeeded; we need to reset our sha, merge base, and patch id
   my $new_sha = run_git('rev-parse', 'HEAD');
