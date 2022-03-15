@@ -123,8 +123,10 @@ sub _mr_from_raw ($self, $raw) {
     sha         => $raw->{head}->{sha},
     state       => $raw->{state},
     web_url     => $raw->{html_url},
+    is_merged   => !! $raw->{merge_commit_sha},
     branch_name => $raw->{head}->{ref},
     force_push_url => $raw->{head}->{repo}->{ssh_url},
+    should_delete_branch => 0,  # github is sensible about this, set it there
   });
 }
 

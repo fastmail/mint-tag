@@ -375,6 +375,8 @@ sub maybe_push ($self, $step, $tagname = undef) {
   $self->_maybe_push_tag($step, $tagname);
 
   $self->_maybe_push_branch_for_step($step);
+
+  $self->_maybe_delete_source_branches($step);
 }
 
 sub _maybe_force_push_rebased_branches ($self, $step) {
@@ -448,6 +450,33 @@ sub _maybe_push_branch_for_step ($self, $step) {
     ($spec->{force} ? '--force-with-lease' : ()),
     $refspec,
   );
+}
+
+sub _maybe_delete_source_branches ($self, $step) {
+  return unless $step->allow_source_branch_deletion;
+
+  for my $mr ($step->merge_requests) {
+    next unless $mr->should_delete_branch;
+
+    try {
+      $Logger->log(["deleting merged branch %s/%s",
+        $mr->force_push_url,
+        $mr->branch_name,
+      ]);
+
+      $mr->wait_until_remote_notices_mr_is_merged;
+
+      run_git('push', '--delete', $mr->force_push_url, $mr->branch_name);
+    } catch {
+      my $err = $_;
+      $Logger->log([
+        "could not delete remote branch %s at %s: %s",
+        $mr->branch_name,
+        $mr->force_push_url,
+        $err,
+      ])
+    };
+  }
 }
 
 sub finalize ($self) {

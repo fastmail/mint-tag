@@ -67,6 +67,11 @@ has force_push_rebased_branches => (
   default => 0,
 );
 
+has allow_source_branch_deletion => (
+  is => 'ro',
+  default => 0,
+);
+
 sub BUILD ($self, $arg) {
   if ($self->push_tag_to && ! $self->tag_prefix) {
     my $name = $self->name;

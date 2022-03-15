@@ -26,6 +26,8 @@ has [qw(
   force_push_url
   title
   web_url
+  is_merged
+  should_delete_branch
 )] => (
   is => 'ro',
   required => 1,
@@ -141,6 +143,27 @@ sub wait_until_remote_head_is_correct ($self) {
   for (0..30) {
     my $check = $self->remote->get_mr($self->number);
     return if $check->sha eq $want_sha;
+
+    sleep 2;  # :(
+  }
+
+  # If we get here, it's been 60s, and so let's just assume it will never
+  # succeed.
+  $Logger->log_fatal([
+    "remote head for %s not up to date after 30 attempts; giving up",
+    $self->ident,
+  ]);
+}
+
+sub wait_until_remote_notices_mr_is_merged ($self) {
+  $Logger->log([
+    "waiting for remote to notice that %s has been merged",
+    $self->ident,
+  ]);
+
+  for (0..30) {
+    my $check = $self->remote->get_mr($self->number);
+    return if $check->is_merged;
 
     sleep 2;  # :(
   }
