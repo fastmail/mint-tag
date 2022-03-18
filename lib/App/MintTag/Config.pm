@@ -23,6 +23,16 @@ sub from_file ($class, $file, $repo = undef) {
   my $steps = $class->_assemble_steps($config->{build_steps}, $remotes);
   my $local_conf = $class->_assemble_local_conf($config, $remotes);
 
+  unless ($config->{meta}{committer_email}) {
+    my $err = "No value found for meta.committer_email in config; giving up.";
+
+    if (! $config->{meta}{committer_name}) {
+      $err .= "\nYou might also consider setting meta.committer_name, too.";
+    }
+
+    die "$err\n";
+  }
+
   return $class->new({
     cfg                => $config,
     is_release_mode    => !! $config->{meta}{release_mode},
