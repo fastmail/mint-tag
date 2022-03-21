@@ -124,7 +124,9 @@ sub _mr_from_raw ($self, $raw) {
     state       => $raw->{state},
     web_url     => $raw->{web_url},
     branch_name => $raw->{source_branch},
+    is_merged   => $raw->{state} eq 'merged',
     force_push_url => $force_push_url,
+    should_delete_branch => $raw->{force_remove_source_branch},
   });
 }
 

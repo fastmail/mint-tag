@@ -370,70 +370,112 @@ sub check_existing_tags($self, $prefix, $sha) {
 sub maybe_push ($self, $step, $tagname = undef) {
   # We do this _before_ pushing the merged branch, otherwise GitHub closes
   # them with status "closed" and not status "merged".
-  if ($step->force_push_rebased_branches) {
-    for my $mr ($step->merge_requests) {
-      next unless $mr->has_been_rebased_locally;
+  $self->_maybe_force_push_rebased_branches($step);
 
-      my $push_spec = join q{:}, $mr->sha, $mr->branch_name;
+  $self->_maybe_push_tag($step, $tagname);
 
-      try {
-        $Logger->log(["force-pushing branch to %s/%s",
-          $mr->force_push_url,
-          $mr->branch_name,
-        ]);
+  $self->_maybe_push_branch_for_step($step);
 
-        run_git('push', '--force', $mr->force_push_url, $push_spec);
+  $self->_maybe_delete_source_branches($step);
+}
 
-        $mr->wait_until_remote_head_is_correct;
-      } catch {
-        my $err = $_;
+sub _maybe_force_push_rebased_branches ($self, $step) {
+  return unless $step->force_push_rebased_branches;
 
-        # NOTE: I am erring on the side of caution in making this fatal.
-        # Arguably, it doesn't *need* to be, but what I don't want is for us
-        # to fail to force-push to a fork, then succeed in pushing to a merge
-        # to the golden repo, which would leave the MR as open and tagged, and
-        # potentially included again in future builds, when it fact it had
-        # already been merged. -- michael, 2021-07-28
-        $Logger->log_fatal([
-          "could not force-push to %s/%s: %s",
-          $mr->remote_name,
-          $mr->branch_name,
-          $err,
-        ])
-      };
-    }
+  for my $mr ($step->merge_requests) {
+    next unless $mr->has_been_rebased_locally;
+
+    my $push_spec = join q{:}, $mr->sha, $mr->branch_name;
+
+    try {
+      $Logger->log(["force-pushing branch to %s/%s",
+        $mr->force_push_url,
+        $mr->branch_name,
+      ]);
+
+      run_git('push', '--force', $mr->force_push_url, $push_spec);
+
+      $mr->wait_until_remote_head_is_correct;
+    } catch {
+      my $err = $_;
+
+      # NOTE: I am erring on the side of caution in making this fatal.
+      # Arguably, it doesn't *need* to be, but what I don't want is for us
+      # to fail to force-push to a fork, then succeed in pushing to a merge
+      # to the golden repo, which would leave the MR as open and tagged, and
+      # potentially included again in future builds, when it fact it had
+      # already been merged. -- michael, 2021-07-28
+      $Logger->log_fatal([
+        "could not force-push to %s/%s: %s",
+        $mr->remote_name,
+        $mr->branch_name,
+        $err,
+      ])
+    };
+  }
+}
+
+sub _maybe_push_tag ($self, $step, $tagname) {
+  my $remote = $step->push_tag_to;
+  return unless $remote;
+
+  unless (length $tagname) {
+    $Logger->log_fatal(["cannot push empty tag to remote %s!", $remote->name]);
   }
 
-  if (my $remote = $step->push_tag_to) {
-    unless (length $tagname) {
-      $Logger->log_fatal(["cannot push empty tag to remote %s!", $remote->name]);
-    }
+  $Logger->log(["pushing tag to remote %s", $remote->name ]);
+  run_git('push', $remote->name, $tagname);
+}
 
-    $Logger->log(["pushing tag to remote %s", $remote->name ]);
-    run_git('push', $remote->name, $tagname);
-  }
+sub _maybe_push_branch_for_step ($self, $step) {
+  return unless $step->has_push_spec;
 
-  if ($step->has_push_spec) {
-    my $spec         = $step->push_spec;
-    my $remote       = $spec->{remote};
-    my $should_force = $spec->{force};
-    my $branch       = $spec->{branch}              ? $spec->{branch}
-                     : $spec->{use_matching_branch} ? $self->target_branch_name
-                     : die "could not figure out remote branch to push!";
-    my $refspec      = join q{:}, 'HEAD', "refs/heads/$branch";
+  my $spec         = $step->push_spec;
+  my $remote       = $spec->{remote};
+  my $should_force = $spec->{force};
+  my $branch       = $spec->{branch}              ? $spec->{branch}
+                   : $spec->{use_matching_branch} ? $self->target_branch_name
+                   : die "could not figure out remote branch to push!";
+  my $refspec      = join q{:}, 'HEAD', "refs/heads/$branch";
 
-    $Logger->log(["%spushing branch to remote %s/%s",
-      $should_force ? 'force-' : '',
-      $remote->name,
-      $branch,
-    ]);
+  $Logger->log(["%spushing branch to remote %s/%s",
+    $should_force ? 'force-' : '',
+    $remote->name,
+    $branch,
+  ]);
 
-    run_git(
-      'push',
-      $remote->name,
-      ($spec->{force} ? '--force-with-lease' : ()),
-      $refspec,
-    );
+  run_git(
+    'push',
+    $remote->name,
+    ($spec->{force} ? '--force-with-lease' : ()),
+    $refspec,
+  );
+}
+
+sub _maybe_delete_source_branches ($self, $step) {
+  return unless $step->allow_source_branch_deletion;
+
+  for my $mr ($step->merge_requests) {
+    next unless $mr->should_delete_branch;
+
+    try {
+      $Logger->log(["deleting merged branch %s/%s",
+        $mr->force_push_url,
+        $mr->branch_name,
+      ]);
+
+      $mr->wait_until_remote_notices_mr_is_merged;
+
+      run_git('push', '--delete', $mr->force_push_url, $mr->branch_name);
+    } catch {
+      my $err = $_;
+      $Logger->log([
+        "could not delete remote branch %s at %s: %s",
+        $mr->branch_name,
+        $mr->force_push_url,
+        $err,
+      ])
+    };
   }
 }
 
