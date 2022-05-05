@@ -428,7 +428,7 @@ sub _maybe_push_tag ($self, $step, $tagname) {
 }
 
 sub _maybe_push_branch_for_step ($self, $step) {
-  return unless $step->has_push_spec;
+  return unless $step->has_push_spec && $step->push_spec;
 
   my $spec         = $step->push_spec;
   my $remote       = $spec->{remote};
