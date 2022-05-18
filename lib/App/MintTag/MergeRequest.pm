@@ -102,7 +102,8 @@ sub as_commit_message ($self) {
 
 sub as_multiline_commit_message ($self, $target_branch) {
   return sprintf(
-    "Merge branch '%s' into '%s'\n\nSee %s\n",
+    "Merge branch '%s/%s' into '%s'\n\nSee %s\n",
+    $self->author,
     $self->branch_name,
     $target_branch,
     $self->web_url,
