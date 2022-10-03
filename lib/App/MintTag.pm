@@ -162,6 +162,20 @@ sub prepare_local_directory ($self) {
   # maybe: git clean -fdx
   run_git('checkout', '--no-track', '-B', $target, $self->merge_base);
   run_git('submodule', 'update');
+
+  # Check if we're mid-rebase, and blat it away. Only do this in
+  # non-interactive mode, because if you're sitting at the terminal you'll see
+  # it fail and can just fix it yourself.
+  if (! $self->interactive) {
+    # (check for git-dir because we might be in a worktree or something)
+    my $git_dir = run_git('rev-parse', '--git-dir');
+    my $rebase_dir = Path::Tiny->new($git_dir)->child('rebase-merge');
+
+    if ($rebase_dir->is_dir) {
+      $Logger->log("removing existing rebase-merge directory at $rebase_dir");
+      $rebase_dir->remove_tree;
+    }
+  }
 }
 
 has have_set_up => (
