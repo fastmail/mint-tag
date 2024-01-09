@@ -9,7 +9,8 @@ use JSON::MaybeXS qw(decode_json is_bool);
 
 use App::MintTag::Logger '$Logger';
 
-requires 'obtain_clone_url';    # get_clone_url was confusing...
+requires 'obtain_https_clone_url';    # get_clone_url was confusing...
+requires 'obtain_ssh_clone_url';
 requires 'get_mrs_for_label';
 requires 'get_mr';
 requires 'ua';
@@ -50,7 +51,14 @@ has repo => (
 has clone_url => (
   is => 'ro',
   lazy => 1,
-  builder => 'obtain_clone_url',
+  builder => sub ($self) {
+      return $self->do_clone_via_https ? $self->obtain_https_clone_url() : $self->obtain_ssh_clone_url();
+  },
+);
+
+has do_clone_via_https => (
+  is => 'ro',
+  default => 0,
 );
 
 has should_fetch_ssh_url_for_forks => (

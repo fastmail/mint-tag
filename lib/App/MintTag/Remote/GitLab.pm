@@ -35,6 +35,15 @@ has my_user_id => (
   },
 );
 
+has my_user_name => (
+  is => 'ro',
+  lazy => 1,
+  default => sub ($self) {
+    my $me = $self->http_get(sprintf("%s/user", $self->api_url));
+    return $me->{username};
+  },
+);
+
 has _fork_ssh_urls => (
   is => 'ro',
   lazy => 1,
@@ -155,7 +164,13 @@ sub ssh_url_for_project_id ($self, $project_id) {
   return $ssh_url;
 }
 
-sub obtain_clone_url ($self) {
+sub obtain_https_clone_url ($self) {
+  my $url = URI->new($self->_raw_repo_data->{http_url_to_repo});
+  $url->userinfo($self->my_user_name . ":" . $self->api_key);
+  return $url;
+}
+
+sub obtain_ssh_clone_url ($self) {
   return $self->_raw_repo_data->{ssh_url_to_repo};
 }
 
