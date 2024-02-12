@@ -124,7 +124,9 @@ has _remotes_by_url => (
   default => sub ($self) {
     # This is potentially lossy, if you have the same remote with more than
     # one name. I think that's fine, for the purposes we need it for.
-    return +{ map {; $_->clone_url => $_ } $self->all_remotes };
+    my $remote_by_https_url = +{ map {; $_->obtain_https_clone_url() => $_ } $self->all_remotes };
+    my $remote_by_ssh_url = +{ map {; $_->obtain_ssh_clone_url() => $_ } $self->all_remotes };
+    return { %$remote_by_https_url, %$remote_by_ssh_url } ;
   }
 );
 

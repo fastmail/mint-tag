@@ -125,12 +125,18 @@ sub _mr_from_raw ($self, $raw) {
     web_url     => $raw->{html_url},
     is_merged   => !! $raw->{merge_commit_sha},
     branch_name => $raw->{head}->{ref},
-    force_push_url => $raw->{head}->{repo}->{ssh_url},
+    force_push_url => $raw->{head}->{repo}->{clone_url},
     should_delete_branch => 0,  # github is sensible about this, set it there
   });
 }
 
-sub obtain_clone_url ($self) {
+sub obtain_https_clone_url ($self) {
+  my $url = URI->new($self->_raw_repo_data->{clone_url});
+  $url->userinfo($self->api_key);
+  return $url;
+}
+
+sub obtain_ssh_clone_url ($self) {
   return $self->_raw_repo_data->{ssh_url};
 }
 
