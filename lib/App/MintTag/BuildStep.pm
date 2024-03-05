@@ -41,6 +41,11 @@ has push_tag_to => (
   is => 'ro',
 );
 
+has cleanup_tag_days => (
+  is => 'ro',
+  default => 0
+);
+
 # Hashref: {
 #   remote => $remote,
 #   force => $bool
