@@ -496,7 +496,7 @@ sub _maybe_delete_source_branches ($self, $step) {
 }
 
 sub _maybe_cleanup_tags ($self, $step) {
-  return unless ($step->push_tag_to && $step->cleanup_tag_days);
+  return unless $step->push_tag_to && $step->cleanup_tag_days;
 
   my $remote = $step->push_tag_to;
   my $prefix = $step->tag_prefix;
@@ -505,7 +505,7 @@ sub _maybe_cleanup_tags ($self, $step) {
     my $tag_spec = "refs/tags/${prefix}*";
     my $tag_list = run_git('for-each-ref', "--format=%(refname:short)\t%(creatordate:unix)", $tag_spec);
 
-    my @tags = map {; my ($tag, $ts) = split /\t/ ; { ts => $ts, 'tag' => $tag}  }
+    my @tags = map {; my ($tag, $ts) = split /\t/; { ts => $ts, 'tag' => $tag} }
     split /\r?\n/, $tag_list;
 
     my $time = time;
@@ -515,7 +515,7 @@ sub _maybe_cleanup_tags ($self, $step) {
     for my $chunk (@tags) {
       if ($chunk->{ts} < $max_ts) {
         $Logger->log(["Deleting old tag %s", $chunk->{tag}]);
-        run_git('push', $remote->name, ":refs/tags/$chunk->{tag}"  );
+        run_git('push', $remote->name, ":refs/tags/$chunk->{tag}");
       } else {
         $Logger->log(["Keeping old tag %s", $chunk->{tag}]);
       }
