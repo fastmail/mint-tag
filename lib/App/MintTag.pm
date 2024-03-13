@@ -391,6 +391,8 @@ sub maybe_push ($self, $step, $tagname = undef) {
   $self->_maybe_push_branch_for_step($step);
 
   $self->_maybe_delete_source_branches($step);
+
+  $self->_maybe_cleanup_tags($step);
 }
 
 sub _maybe_force_push_rebased_branches ($self, $step) {
@@ -491,6 +493,41 @@ sub _maybe_delete_source_branches ($self, $step) {
       ])
     };
   }
+}
+
+sub _maybe_cleanup_tags ($self, $step) {
+  return unless $step->push_tag_to && $step->cleanup_tag_days;
+
+  my $remote = $step->push_tag_to;
+  my $prefix = $step->tag_prefix;
+
+  try {
+    my $tag_spec = "refs/tags/${prefix}*";
+    my $tag_list = run_git('for-each-ref', "--format=%(refname:short)\t%(creatordate:unix)", $tag_spec);
+
+    my @tags = map {; my ($tag, $ts) = split /\t/; { ts => $ts, 'tag' => $tag} }
+    split /\n/, $tag_list;
+
+    my $time = time;
+
+    my $max_ts = $time - ($step->cleanup_tag_days * 86400);
+
+    my @can_remove = map {; $_->{tag} } grep {; $_->{ts} < $max_ts } @tags;
+
+    while (my @batch = splice @can_remove, 0, 100) {
+      $Logger->log_debug(["Deleting tags: %s", join(' ', @batch)]);
+      run_git('push', $remote->name, map {; ":refs/tags/$_" } @batch);
+    }
+
+  } catch {
+    my $err = $_;
+
+    $Logger->log_fatal([
+        "Failed to delete remote tag on remote %s: %s",
+        $remote->name,
+        $err,
+      ])
+  };
 }
 
 sub finalize ($self) {
