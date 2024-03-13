@@ -505,26 +505,44 @@ sub _maybe_cleanup_tags ($self, $step) {
     my $tag_spec = "refs/tags/${prefix}*";
     my $tag_list = run_git('for-each-ref', "--format=%(refname:short)\t%(creatordate:unix)", $tag_spec);
 
-    my @tags = map {; my ($tag, $ts) = split /\t/; { ts => $ts, 'tag' => $tag} }
-    split /\r?\n/, $tag_list;
+    my @tags = sort { $a->{ts} <=> $b->{ts} }
+                 map {;
+                   my ($tag, $ts) = split /\t/;
+                   { ts => $ts, 'tag' => $tag}
+                 } split /\n/, $tag_list;
 
     my $time = time;
 
     my $max_ts = $time - ($step->cleanup_tag_days * 86400);
 
-    for my $chunk (@tags) {
-      if ($chunk->{ts} < $max_ts) {
-        $Logger->log(["Deleting old tag %s", $chunk->{tag}]);
-        run_git('push', $remote->name, ":refs/tags/$chunk->{tag}");
-      } else {
-        $Logger->log(["Keeping old tag %s", $chunk->{tag}]);
-      }
+    my @can_remove = map {; $_->{tag} } grep {; $_->{ts} < $max_ts } @tags;
+
+    my $tag_list_count = @tags;
+    my $tag_remove_count = @can_remove;
+
+    # if all tags except the one we've just tagged are old enough to remove,
+    # make sure to keep the latest tag by removing it from the deletion list
+    if ($tag_remove_count > 0 and $tag_remove_count >= $tag_list_count - 1) {
+      my $keep_tag = pop @can_remove;
+
+      $Logger->log(["Keeping most recent tag %s to avoid deleting all historical tags", $keep_tag]);
     }
+
+    $tag_remove_count = @can_remove;
+
+    $Logger->log(["Deleting %d old tags", $tag_remove_count]);
+
+    while (my @batch = splice @can_remove, 0, 100) {
+      $Logger->log(["Deleting tags: %s", join(' ', @batch)]);
+      run_git('push', $remote->name, map {; ":refs/tags/$_" } @batch);
+      run_git('tag', '-d', @batch);
+    }
+
   } catch {
     my $err = $_;
 
-    $Logger->log_fatal([
-        "could not delete remote tag on remote %s: %s",
+    $Logger->log([
+        "Failed to delete remote tag on remote %s: %s",
         $remote->name,
         $err,
       ])
