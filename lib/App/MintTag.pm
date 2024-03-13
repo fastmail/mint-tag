@@ -506,25 +506,24 @@ sub _maybe_cleanup_tags ($self, $step) {
     my $tag_list = run_git('for-each-ref', "--format=%(refname:short)\t%(creatordate:unix)", $tag_spec);
 
     my @tags = map {; my ($tag, $ts) = split /\t/; { ts => $ts, 'tag' => $tag} }
-    split /\r?\n/, $tag_list;
+    split /\n/, $tag_list;
 
     my $time = time;
 
     my $max_ts = $time - ($step->cleanup_tag_days * 86400);
 
-    for my $chunk (@tags) {
-      if ($chunk->{ts} < $max_ts) {
-        $Logger->log(["Deleting old tag %s", $chunk->{tag}]);
-        run_git('push', $remote->name, ":refs/tags/$chunk->{tag}");
-      } else {
-        $Logger->log(["Keeping old tag %s", $chunk->{tag}]);
-      }
+    my @can_remove = map {; $_->{tag} } grep {; $_->{ts} < $max_ts } @tags;
+
+    while (my @batch = splice @can_remove, 0, 100) {
+      $Logger->log_debug(["Deleting tags: %s", join(' ', @batch)]);
+      run_git('push', $remote->name, map {; ":refs/tags/$_" } @batch);
     }
+
   } catch {
     my $err = $_;
 
     $Logger->log_fatal([
-        "could not delete remote tag on remote %s: %s",
+        "Failed to delete remote tag on remote %s: %s",
         $remote->name,
         $err,
       ])
