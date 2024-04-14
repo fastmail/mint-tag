@@ -391,6 +391,8 @@ sub maybe_push ($self, $step, $tagname = undef) {
   $self->_maybe_push_branch_for_step($step);
 
   $self->_maybe_delete_source_branches($step);
+
+  $self->_maybe_cleanup_tags($step);
 }
 
 sub _maybe_force_push_rebased_branches ($self, $step) {
@@ -491,6 +493,60 @@ sub _maybe_delete_source_branches ($self, $step) {
       ])
     };
   }
+}
+
+sub _maybe_cleanup_tags ($self, $step) {
+  return unless $step->push_tag_to && $step->cleanup_tag_days;
+
+  my $remote = $step->push_tag_to;
+  my $prefix = $step->tag_prefix;
+
+  try {
+    my $tag_spec = "refs/tags/${prefix}*";
+    my $tag_list = run_git('for-each-ref', "--format=%(refname:short)\t%(creatordate:unix)", $tag_spec);
+
+    my @tags = sort { $a->{ts} <=> $b->{ts} }
+                 map {;
+                   my ($tag, $ts) = split /\t/;
+                   { ts => $ts, 'tag' => $tag}
+                 } split /\n/, $tag_list;
+
+    my $time = time;
+
+    my $max_ts = $time - ($step->cleanup_tag_days * 86400);
+
+    my @can_remove = map {; $_->{tag} } grep {; $_->{ts} < $max_ts } @tags;
+
+    my $tag_list_count = @tags;
+    my $tag_remove_count = @can_remove;
+
+    # if all tags except the one we've just tagged are old enough to remove,
+    # make sure to keep the latest tag by removing it from the deletion list
+    if ($tag_remove_count > 0 and $tag_remove_count >= $tag_list_count - 1) {
+      my $keep_tag = pop @can_remove;
+
+      $Logger->log(["Keeping most recent tag %s to avoid deleting all historical tags", $keep_tag]);
+    }
+
+    $tag_remove_count = @can_remove;
+
+    $Logger->log(["Deleting %d old tags", $tag_remove_count]);
+
+    while (my @batch = splice @can_remove, 0, 100) {
+      $Logger->log(["Deleting tags: %s", join(' ', @batch)]);
+      run_git('push', $remote->name, map {; ":refs/tags/$_" } @batch);
+      run_git('tag', '-d', @batch);
+    }
+
+  } catch {
+    my $err = $_;
+
+    $Logger->log([
+        "Failed to delete remote tag on remote %s: %s",
+        $remote->name,
+        $err,
+      ])
+  };
 }
 
 sub finalize ($self) {
