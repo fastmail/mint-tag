@@ -74,6 +74,21 @@ has has_been_rebased_locally => (
   default => 0,
 );
 
+has fetch_affected_files_callback => (
+  is => 'ro',
+  required => 1,
+);
+
+has _affected_files => (
+  is   => 'ro',
+  lazy => 1,
+  default => sub ($self) { $self->fetch_affected_files_callback->($self) }
+);
+
+sub affected_files ($self) {
+  $self->_affected_files->@*;
+}
+
 sub BUILD ($self, $arg) {
   if ( $self->remote->should_fetch_ssh_url_for_forks
     && ! defined $self->force_push_url
