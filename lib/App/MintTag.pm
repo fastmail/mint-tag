@@ -626,8 +626,33 @@ sub _diagnostic_merge ($self, $mrs) {
   }
 
   # If we are in this sub at all, we expect that the above will fail. If it
-  # doesn't, something very strange indeed has happened.
-  $Logger->log_fatal('diagnostic merge succeeded somehow...this should not happen!');
+  # doesn't, something strange has happened.
+  $Logger->log('diagnostic merge succeeded somehow, so here are multiply-affected files');
+
+  my %affected_by;
+  for my $mr (@$mrs) {
+    $Logger->log([ "checking files affected by %s", $mr->ident ]);
+
+    try {
+      my @files = $mr->affected_files;
+      $affected_by{$_}{ $mr->ident } = $mr for @files;
+    } catch {
+      my $err = $_;
+      chomp $err;
+
+      $Logger->log([
+        "error fetching files affected by %s: %s", $mr->ident, $err
+      ]);
+    };
+  }
+
+  for my $file (sort keys %affected_by) {
+    next unless $affected_by{$file}->%* > 1;
+    my @by = sort map {; $_->ident } values $affected_by{$file}->%*;
+    $Logger->log([ '%s affected by all of %s', $file, join(q{, }, @by) ]);
+  }
+
+  $Logger->log_fatal("giving up after conflicts");
 }
 
 sub _find_conflict ($self, $known_bad, $all_mrs) {
