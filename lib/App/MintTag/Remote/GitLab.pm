@@ -136,6 +136,12 @@ sub _mr_from_raw ($self, $raw) {
     is_merged   => $raw->{state} eq 'merged',
     force_push_url => $force_push_url,
     should_delete_branch => $raw->{force_remove_source_branch},
+    fetch_affected_files_callback => sub ($mr) {
+      my $remote = $mr->remote;
+      my $uri = $remote->uri_for("/merge_requests/" . $mr->number . "/diffs");
+      my $res = $mr->remote->http_get($uri);
+      return [ uniq map {; $_->{old_path}, $_->{new_path} } @$res ];
+    },
   });
 }
 

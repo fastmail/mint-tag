@@ -127,6 +127,12 @@ sub _mr_from_raw ($self, $raw) {
     branch_name => $raw->{head}->{ref},
     force_push_url => $raw->{head}->{repo}->{clone_url},
     should_delete_branch => 0,  # github is sensible about this, set it there
+    fetch_affected_files_callback => sub ($mr) {
+      my $remote = $mr->remote;
+      my $uri = $remote->uri_for("/pulls/" . $mr->number . "/files");
+      my $res = $mr->remote->http_get($uri);
+      return [ map {; $_->{filename} } @$res ];
+    },
   });
 }
 
