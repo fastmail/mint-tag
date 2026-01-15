@@ -144,7 +144,7 @@ sub remote_for_url ($self, $clone_url) {
   return $remote if $remote;
 
   # Not dying here, I think.
-  return;
+  return undef;
 }
 
 # In release mode, we do things a little differently
