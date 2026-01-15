@@ -140,7 +140,7 @@ has merge_requests => (
           %$mr,
           key       => $key,
           step_name => $step->{name},
-          remote    => $self->config->remote_for_url($step->{remote}),
+          remote    => scalar $self->config->remote_for_url($step->{remote}),
         },
       }
     }
