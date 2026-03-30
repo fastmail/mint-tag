@@ -7,6 +7,7 @@ use experimental qw(postderef signatures);
 
 use TOML::Parser;
 use Try::Tiny;
+use URI;
 
 use App::MintTag::Logger '$Logger';
 
@@ -83,7 +84,13 @@ sub as_toml ($self) {
   for my $step ($self->step_data->@*) {
     push @lines, '[[build_steps]]';
     push @lines, sprintf('name = "%s"', $step->{name});
-    push @lines, sprintf('remote = "%s"', $step->{remote});
+
+    my $remote_uri = URI->new($step->{remote});
+    if ($remote_uri->can('userinfo')) {
+      $remote_uri->userinfo(undef);
+    }
+
+    push @lines, sprintf('remote = "%s"', "$remote_uri");
 
     for my $mr ($step->{merge_requests}->@*) {
       my $title = $mr->{title};
