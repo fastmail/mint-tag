@@ -84,6 +84,44 @@ sub BUILD ($self, $arg) {
   }
 }
 
+# A regex matching the tags this step makes, capturing the date and the serial
+# number.
+sub tag_regex ($self) {
+  my $prefix = $self->tag_prefix;
+  return qr/\A\Q$prefix\E-(\d{8})\.(\d{3})/a;
+}
+
+# Given some tag names, return the most recent one this step would have made,
+# or undef if there isn't one.
+sub newest_tag ($self, @tags) {
+  my $re = $self->tag_regex;
+
+  my ($newest) = map  {; $_->[0] }
+                 sort {; $b->[1] <=> $a->[1] || $b->[2] <=> $a->[2] }
+                 map  {; [ $_, $_ =~ $re ] }
+                 grep {; $_ =~ $re } @tags;
+
+  return $newest;
+}
+
+sub next_tag_name ($self, $ymd, $sha) {
+  my $prefix = $self->tag_prefix;
+  my $re = $self->tag_regex;
+
+  my @today = grep {; $_ =~ $re }
+              split /\n/,
+              run_git('tag', '-l', "$prefix-$ymd.*");
+
+  my $n = 1;
+  if (my $last = $self->newest_tag(@today)) {
+    my (undef, $last_n) = $last =~ $re;
+    $n = $last_n + 1;
+  }
+
+  my $short = substr $sha, 0, 8;
+  return sprintf "$prefix-$ymd.%03d-g$short", $n;
+}
+
 has _merge_requests => (
   is => 'ro',
   init_arg => undef,

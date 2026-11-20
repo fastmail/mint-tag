@@ -9,7 +9,7 @@ use App::MintTag::Approver;
 use App::MintTag::Artifact;
 use App::MintTag::Config;
 use App::MintTag::Logger '$Logger';
-use App::MintTag::Util qw(run_git re_for_tag);
+use App::MintTag::Util qw(run_git);
 
 use Data::Dumper::Concise;
 use DateTime;
@@ -363,34 +363,20 @@ sub octopus_merge_mrs ($self, $mrs, $earlier_mrs = []) {
 }
 
 # Our tag format is going to be opinionated. If there's a tag_prefix in config,
-# we'll tag the commit in the format PREFIX-yyyymmdd.nnn-gSHA
+# we'll tag the commit in the format given by the step's tag_style.
 sub maybe_tag_commit ($self, $this_step) {
   return unless $this_step->tag_prefix;
 
   my $ymd = DateTime->from_epoch(epoch => $self->now, time_zone => 'UTC')->ymd('');
   my $sha = run_git('rev-parse', 'HEAD');
 
-  if (my $existing = $self->check_existing_tags($this_step->tag_prefix, $sha)) {
+  if (my $existing = $self->check_existing_tags($this_step, $sha)) {
     my $short = substr $sha, 0, 12;
     $Logger->log("$short already tagged as $existing; skipping");
     return $existing;
   }
 
-  my $prefix = $this_step->tag_prefix;
-  my $tag = "$prefix-$ymd.001";
-
-  # Grab the last tag we have, and increment our serial number, if we need to.
-  my ($last_tag) = sort {; $b cmp $a }
-                   split /\n/,
-                   run_git('tag', '-l', "$prefix-$ymd.*");
-
-  if ($last_tag) {
-    my ($n) = $last_tag =~ /\Q$prefix-$ymd.\E(\d+)/a;
-    $tag = sprintf "$prefix-$ymd.%03d", $n + 1;
-  }
-
-  my $short = substr $sha, 0, 8;
-  $tag .= "-g$short";
+  my $tag = $this_step->next_tag_name($ymd, $sha);
 
   my $artifact = App::MintTag::Artifact->new({
     annotation_version => $ANNOTATION_VERSION,
@@ -416,13 +402,13 @@ sub maybe_tag_commit ($self, $this_step) {
   return $tag;
 }
 
-sub check_existing_tags($self, $prefix, $sha) {
+sub check_existing_tags ($self, $step, $sha) {
   # if we already have a tag for this tag format pointing at our head, don't
   # bother making another one!
   my @have_tags = split /\n/, run_git('tag', '-l', '--points-at', $sha);
   return unless @have_tags;
 
-  my $re = re_for_tag($prefix);
+  my $re = $step->tag_regex;
   my ($tag) = grep {; $_ =~ $re } @have_tags;
   return $tag;
 }
@@ -553,7 +539,7 @@ sub _maybe_cleanup_tags ($self, $step) {
 
     # The glob above will match tags that only begin the way ours do, so we
     # weed out anything that doesn't look like a tag we'd have made.
-    my $re = re_for_tag($prefix);
+    my $re = $step->tag_regex;
 
     my @tags = sort { $a->{ts} <=> $b->{ts} }
                  grep {; $_->{tag} =~ $re }
