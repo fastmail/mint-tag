@@ -160,7 +160,7 @@ sub BUILD ($self, $arg) {
 # Write the config file.  This happens when the world is built, but if you
 # change the config afterward, you'll need to do it again.
 sub write_config ($self) {
-  $self->config_file->spew_utf8(_toml_for($self->config));
+  $self->config_file->spew_utf8(toml_for($self->config));
   return;
 }
 
@@ -242,12 +242,12 @@ sub _run ($self, $code, %arg) {
   });
 }
 
-# This turns a config data structure into TOML.  It knows exactly as much TOML
+# This function (not method!) turns a config data structure into TOML.  It knows exactly as much TOML
 # as a mint-tag config needs: tables of scalars, tables of tables, and arrays
 # of tables.  Booleans are written as references: \1 and \0.  Keys with
 # undefined values are left out, which is how you remove something from one of
 # the stock configs.
-sub _toml_for ($config) {
+sub toml_for ($config) {
   return join q{}, map {; _toml_table($_, $config->{$_}, 0) } sort keys %$config;
 }
 
