@@ -51,7 +51,7 @@ sub run_git (@cmd) {
 }
 
 sub re_for_tag ($prefix) {
-  return qr/\Q$prefix\E-\d{8}\.\d{3}/a;
+  return qr/\A\Q$prefix\E-\d{8}\.\d{3}/a;
 }
 
 sub compute_patch_id ($base, $head) {
