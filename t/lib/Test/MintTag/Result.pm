@@ -35,6 +35,13 @@ has new_tags => (
   required => 1,
 );
 
+# The sha of the commit that was checked out in the local repository when the
+# run ended, which is what mint-tag built.  We record this when the run ends,
+# because the next run is going to check out something else.
+has head => (
+  is => 'ro',
+);
+
 # The one tag made by this run, or undef if there wasn't one.  If there were
 # more than one, something is up, and we'll die.
 sub tag ($self) {
@@ -54,8 +61,8 @@ sub local_repo ($self) { $self->world->local_repo }
 
 # Given a name for a commit, return its sha.  The names we know:
 #
-#   head      - the commit checked out in the local repository, which is what
-#               mint-tag built; this is not always the tip of the target
+#   head      - the commit that mint-tag built, which was checked out when
+#               the run ended; this is not always the tip of the target
 #               branch, because mint-tag sometimes works on a detached HEAD
 #   base      - the commit that the build started from
 #   REMOTE!N  - the head of the merge request with that ident, as merged,
@@ -63,10 +70,7 @@ sub local_repo ($self) { $self->world->local_repo }
 #
 # Anything else is taken as a revision in the local repository.
 sub rev_for ($self, $name) {
-  if ($name eq 'head') {
-    return $self->local_repo->rev('HEAD');
-  }
-
+  return $self->head if $name eq 'head';
   return $self->app->merge_base if $name eq 'base';
 
   if ($name =~ /!/) {

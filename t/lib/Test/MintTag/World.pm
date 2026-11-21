@@ -239,6 +239,7 @@ sub _run ($self, $code, %arg) {
     error    => $error,
     logs     => [ map {; $_->{message} } $Logger->events->@* ],
     new_tags => \@new_tags,
+    head     => ($local->path->is_dir ? $local->rev('HEAD') : undef),
   });
 }
 

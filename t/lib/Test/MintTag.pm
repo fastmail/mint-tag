@@ -66,11 +66,16 @@ sub simple_config (%step) {
 # merge requests from a private mirror on "gitlab" are rebased onto that and
 # merged, and the result is tagged, and the tag is pushed to gitlab.
 #
-# The arguments are (step name => { config to add to that step }).
+# The arguments are (step name => { config to add to that step }).  You can
+# also pass (local => { config to add to the local section }).
 sub cyrus_config (%arg) {
   return {
     meta   => _meta(),
-    local  => { target_branch => 'deploy', upstream_base => 'github/master' },
+    local  => {
+      target_branch => 'deploy',
+      upstream_base => 'github/master',
+      ($arg{local} // {})->%*,
+    },
     remote => {
       github => { repo => 'cyrusimap/cyrus-imapd' },
       gitlab => { repo => 'fastmail/cyrus-imapd'  },
