@@ -172,17 +172,37 @@ sub data_for_mr ($self, $mr) {
   return $self->merge_requests->{ $self->_key_for_mr($mr) };
 }
 
-# return a list of MRs that we have, but that aren't in $step
-sub mrs_not_in ($self, $step) {
-  my %have_in_step =  map {; $self->_key_for_mr($_) => 1 } $step->merge_requests;
+# Given all the steps of a build, return the MRs that we have, but that aren't
+# in any of those steps.  This returns a list of pairs, like:
+#
+#   [ $step, $mr_data ]
+#
+# ...where the step is the one the MR has gone missing from.  That's the step
+# with the same name as the step we have the MR in.  If there's no such step,
+# maybe because it's been renamed, it's the first step that uses the MR's
+# remote.  If there's no such step either, there's no step in the pair.
+sub missing_mrs ($self, @steps) {
+  my %have = map {; $self->_key_for_mr($_) => 1 }
+             map {; $_->merge_requests } @steps;
 
-  my @existing_keys = map  {; $_->{key} }
-                      grep {; $_->{step_name} eq $step->name }
-                      values $self->merge_requests->%*;
+  my (%step_named, %step_using);
+  for my $step (@steps) {
+    $step_named{ $step->name } //= $step;
+    $step_using{ url_without_credentials($step->remote->clone_url) } //= $step;
+  }
 
-  my @missing = map  {; $self->merge_requests->{$_} }
-                grep {; ! $have_in_step{$_} }
-                @existing_keys;
+  my @missing;
+
+  for my $mr (values $self->merge_requests->%*) {
+    next if $have{ $mr->{key} };
+
+    my $remote_url = $mr->{key} =~ s/![0-9]+\z//r;
+
+    push @missing, [
+      $step_named{ $mr->{step_name} } // $step_using{$remote_url},
+      $mr,
+    ];
+  }
 
   return @missing;
 }

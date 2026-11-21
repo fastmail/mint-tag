@@ -66,20 +66,46 @@ sub confirm_plan ($self) {
   my $step_counter = 1;
   my $mr_counter = 1;
 
+  # Find anything that was in the last build, but has now disappeared.  The
+  # keys here are steps (well, their addresses), and the values are arrayrefs
+  # of the data we have for the merge requests missing from that step.
+  my %missing_from;
+  my @missing_from_nowhere;
+
+  if ($self->has_last_build) {
+    for my $pair ($self->last_build->missing_mrs($self->config->steps)) {
+      my ($step, $mr) = @$pair;
+      push @{ $step ? ($missing_from{$step} //= []) : \@missing_from_nowhere }, $mr;
+    }
+  }
+
   my $total_mr_count = sum0 map {; scalar $_->merge_requests } $self->config->steps;
+  my $anything_missing = %missing_from || @missing_from_nowhere;
+
+  # If there's nothing to merge, there's no plan to show, unless things have
+  # gone missing.  Then, we show the plan so the user can see what.
+  if ($total_mr_count > 0 || $anything_missing) {
+    for my $step ($self->config->steps) {
+      my $header = "Step $step_counter: " . $step->name;
+      $step_counter++;
+      say $header;
+      say '-' x length $header;
+
+      $self->output_step($step, \$mr_counter, $missing_from{$step} // []);
+    }
+
+    # These were in a step that isn't in the config anymore, and neither is
+    # any other step using their remote.
+    if (@missing_from_nowhere) {
+      $self->output_missing_mrs(\@missing_from_nowhere);
+      say "";
+    }
+  }
+
   unless ($total_mr_count > 0) {
     say "Well, that would have been a great branch, but I couldn't find anything";
     say "to merge. I guess I'll give up now; maybe next time!";
     return;
-  }
-
-  for my $step ($self->config->steps) {
-    my $header = "Step $step_counter: " . $step->name;
-    $step_counter++;
-    say $header;
-    say '-' x length $header;
-
-    $self->output_step($step, \$mr_counter);
   }
 
   return $self->enter_interactive_mode;
@@ -214,12 +240,17 @@ sub maybe_set_last_build ($self) {
   $self->_set_last_build($build);
 }
 
-sub output_step ($self, $step, $counter_ref) {
+# $missing is an arrayref of data from the last build, for the merge requests
+# that were in that build but have disappeared from this step.
+sub output_step ($self, $step, $counter_ref, $missing) {
   unless ($step->merge_requests) {
-    printf("Nothing to do! No merge requests labeled %s found on remote %s\n\n",
+    printf("Nothing to do! No merge requests labeled %s found on remote %s\n",
       $step->label,
       $step->remote->name,
     );
+
+    $self->output_missing_mrs($missing);
+    say "";
 
     return;
   }
@@ -237,11 +268,7 @@ sub output_step ($self, $step, $counter_ref) {
     $self->output_mr($step, $mr, $idx);
   }
 
-  # Find anything that was in the last build, but has now disappeared
-  if ($self->has_last_build) {
-    my @missing = $self->last_build->mrs_not_in($step);
-    $self->output_missing_mrs(\@missing);
-  }
+  $self->output_missing_mrs($missing);
 
   if (my $remote = $step->push_tag_to) {
     say "\nWe'd tag that and push it tag to the remote named " . $remote->name . '.';

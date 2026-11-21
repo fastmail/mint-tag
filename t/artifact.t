@@ -258,19 +258,97 @@ subtest "finding merge requests in an artifact" => sub {
 
   is($artifact->data_for_mr(mr_obj($gitlab, 2)), undef, "there is no data for gitlab!2");
 
-  # Compare an artifact with what a step holds now, and find what's gone.
-  my sub missing_from ($step_name, $remote, @numbers) {
-    my $step = step($step_name => $remote, map {; mr_obj($remote, $_) } @numbers);
-    return [ sort map {; $_->{key} =~ s/.*!//r } $artifact->mrs_not_in($step) ];
+};
+
+subtest "finding merge requests that have gone missing" => sub {
+  # The last build had these steps...
+  my $artifact = round_trip(artifact(config(
+    step(upstream => $github, mr_obj($github, 1), mr_obj($github, 2)),
+    step(capstone => $gitlab, mr_obj($gitlab, 1), mr_obj($gitlab, 3)),
+  )));
+
+  # ...and the next one will have the steps given here, each of which is
+  # [ name => $remote, @mr_numbers ].  We say what we expect to be reported as
+  # missing, as { step name => [ MR numbers ] }.  Missing merge requests that
+  # don't belong to any step are listed under the name "(no step)".
+  my sub missing_is ($steps, $want, $desc) {
+    local $Test::Builder::Level = $Test::Builder::Level + 1;
+
+    my @steps = map {;
+      my ($name, $remote, @numbers) = @$_;
+      step($name => $remote, map {; mr_obj($remote, $_) } @numbers);
+    } @$steps;
+
+    my %got;
+    for my $pair ($artifact->missing_mrs(@steps)) {
+      my ($step, $mr) = @$pair;
+      push $got{ $step ? $step->name : '(no step)' }->@*, $mr->{number};
+    }
+
+    cmp_deeply(\%got, { map {; $_ => bag($want->{$_}->@*) } keys %$want }, $desc);
   }
 
-  cmp_deeply(missing_from(upstream => $github, 1, 2), [ ],      "nothing is missing");
-  cmp_deeply(missing_from(upstream => $github, 2, 9), [ 1 ],    "MR 1 is missing");
-  cmp_deeply(missing_from(upstream => $github),       [ 1, 2 ], "everything is missing");
-  cmp_deeply(missing_from(capstone => $gitlab, 3),    [ 1 ],    "gitlab's MR 1 is missing");
+  missing_is(
+    [ [ upstream => $github, 1, 2 ], [ capstone => $gitlab, 1, 3 ] ],
+    { },
+    "nothing is missing",
+  );
 
-  cmp_deeply(missing_from(renamed  => $github),       [ ],
-    "nothing is missing from a step the artifact has never heard of");
+  missing_is(
+    [ [ upstream => $github, 2, 9 ], [ capstone => $gitlab, 3 ] ],
+    { upstream => [ 1 ], capstone => [ 1 ] },
+    "one merge request is missing from each step",
+  );
+
+  missing_is(
+    [ [ upstream => $github ], [ capstone => $gitlab, 1, 3 ] ],
+    { upstream => [ 1, 2 ] },
+    "everything is missing from one step",
+  );
+
+  missing_is(
+    [ [ renamed => $github, 2 ], [ capstone => $gitlab, 1, 3 ] ],
+    { renamed => [ 1 ] },
+    "a merge request missing from a renamed step is reported for the step using its remote",
+  );
+
+  missing_is(
+    [ [ upstream => $github, 1 ], [ extras => $github, 2 ], [ capstone => $gitlab, 1, 3 ] ],
+    { },
+    "a merge request that has moved to another step is not missing",
+  );
+
+  missing_is(
+    [ [ first => $github, 1 ], [ second => $github ], [ capstone => $gitlab, 1, 3 ] ],
+    { first => [ 2 ] },
+    "when a renamed step's remote is used by two steps, the first one gets the report",
+  );
+
+  missing_is(
+    [ [ extras => $github ], [ upstream => $github, 1 ], [ capstone => $gitlab, 1, 3 ] ],
+    { upstream => [ 2 ] },
+    "a step with the right name beats an earlier step with the right remote",
+  );
+
+  missing_is(
+    [ [ upstream => $github, 1, 2 ] ],
+    { '(no step)' => [ 1, 3 ] },
+    "merge requests from a remote that no step uses belong to no step",
+  );
+
+  # Missing merge requests come back in order: first by remote, then by number.
+  my @numbers = (1, 2, 3, 10, 11, 12);
+
+  my $big = round_trip(artifact(config(
+    step(upstream => $github, map {; mr_obj($github, $_) } @numbers),
+    step(capstone => $gitlab, map {; mr_obj($gitlab, $_) } @numbers),
+  )));
+
+  cmp_deeply(
+    [ map {; $_->[1]{key} =~ s/\A.+(github|gitlab)\.git!/$1!/r } $big->missing_mrs() ],
+    [ (map {; "github!$_" } @numbers), (map {; "gitlab!$_" } @numbers) ],
+    "missing merge requests are in order",
+  );
 };
 
 subtest "remotes with credentials in their URLs" => sub {
