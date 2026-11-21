@@ -52,6 +52,14 @@ has tick => (
   },
 );
 
+# While this is true, the forge stops noticing things.  It will go on reporting
+# what it last knew about every merge request, no matter what gets pushed.
+# Real forges do this for a few seconds at a time.  We can keep it up forever.
+has is_oblivious => (
+  is => 'rw',
+  default => 0,
+);
+
 has repo => (
   is => 'ro',
   lazy => 1,
@@ -302,11 +310,15 @@ sub set_labels ($self, $number, @labels) {
 # branch, then the merge request is merged.
 sub mr_data ($self, $number) {
   my $mr = $self->_mr($number);
-  $self->_notice_pushes_to($mr);
+  $self->_notice_pushes_to($mr) unless $self->is_oblivious;
 
   my $sha = $self->repo->rev("refs/merge-requests/$number/head");
 
-  if ($mr->{state} eq 'opened' && $self->repo->is_ancestor($sha, $self->default_branch)) {
+  if (
+    ! $self->is_oblivious
+    && $mr->{state} eq 'opened'
+    && $self->repo->is_ancestor($sha, $self->default_branch)
+  ) {
     $mr->{state} = 'merged';
   }
 

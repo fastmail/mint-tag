@@ -206,6 +206,8 @@ sub _run ($self, $code, %arg) {
 
   $Logger->clear_events;
 
+  my $slept_before = $Test::MintTag::SLEPT;
+
   my ($app, $error);
 
   {
@@ -242,6 +244,7 @@ sub _run ($self, $code, %arg) {
     logs     => [ map {; $_->{message} } $Logger->events->@* ],
     new_tags => \@new_tags,
     head     => ($local->path->is_dir ? $local->rev('HEAD') : undef),
+    slept    => $Test::MintTag::SLEPT - $slept_before,
   });
 }
 

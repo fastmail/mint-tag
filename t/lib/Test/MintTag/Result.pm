@@ -42,6 +42,13 @@ has head => (
   is => 'ro',
 );
 
+# How many seconds mint-tag spent asleep during the run, or would have, if
+# sleeping took any time in the tests.
+has slept => (
+  is => 'ro',
+  default => 0,
+);
+
 # The one tag made by this run, or undef if there wasn't one.  If there were
 # more than one, something is up, and we'll die.
 sub tag ($self) {

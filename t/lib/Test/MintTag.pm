@@ -17,8 +17,33 @@ BEGIN {
   $ENV{GIT_CONFIG_GLOBAL}     = '/dev/null';
   $ENV{GIT_CONFIG_NOSYSTEM}   = 1;
   $ENV{GIT_TERMINAL_PROMPT}   = 0;
+
+  # Don't let git start tidying up repositories in the background while we're
+  # in the middle of looking at them.
+  $ENV{GIT_CONFIG_COUNT}   = 3;
+  $ENV{GIT_CONFIG_KEY_0}   = 'gc.auto';
+  $ENV{GIT_CONFIG_VALUE_0} = 0;
+  $ENV{GIT_CONFIG_KEY_1}   = 'maintenance.auto';
+  $ENV{GIT_CONFIG_VALUE_1} = 'false';
+
+  # When git needs to know who's committing, and nobody has said, it will try
+  # to guess from the username and hostname.  Whether that works depends on
+  # where we're running.  This makes sure it never does.
+  $ENV{GIT_CONFIG_KEY_2}   = 'user.useConfigOnly';
+  $ENV{GIT_CONFIG_VALUE_2} = 'true';
+
   $ENV{ANSI_COLORS_DISABLED}  = 1;
+
+  # mint-tag sleeps while it waits for a forge to notice a push.  It can wait
+  # for a whole minute, and we don't have that kind of time, so in the tests,
+  # sleeping takes no time at all.  We do keep track of how long we would have
+  # slept.  This has to happen before any mint-tag code is compiled.
+  no warnings 'once';
+  *CORE::GLOBAL::sleep = sub ($seconds) { $Test::MintTag::SLEPT += $seconds; return $seconds };
 }
+
+# the total number of seconds that anything has asked to sleep for
+our $SLEPT = 0;
 
 # We log to an array in memory, so that tests can see what was logged.  If
 # you're trying to work out why a test is failing, set MINTTAG_LOG_STDERR=1 and
@@ -198,6 +223,7 @@ sub mint_ok ($world, $desc, $spec) {
 #             branch must not exist
 #   mr_states - a hashref of (ident => state), giving the state that the forge
 #             must now report for those merge requests
+#   slept   - how many seconds mint-tag must have slept for
 #   logs    - an arrayref of regexes, each of which has to match a log line
 #   no_logs - an arrayref of regexes, none of which may match a log line
 #
@@ -276,6 +302,10 @@ sub result_ok ($result, $desc, $expect) {
         my $state = $result->world->forge($name)->mr_data($number)->{state};
         is($state, $want->{$ident}, "$ident is $want->{$ident}");
       }
+    }
+
+    if (defined(my $want = delete $expect{slept})) {
+      is($result->slept, $want, "slept for $want seconds");
     }
 
     for my $want ((delete $expect{logs} // [])->@*) {
