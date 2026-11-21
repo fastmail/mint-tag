@@ -197,7 +197,12 @@ sub _run ($self, $code, %arg) {
   my $now = $self->now;
 
   my $local = $self->local_repo;
-  my %had_tag = $local->path->is_dir ? (map {; $_ => 1 } $local->tags) : ();
+  # A tag is new if this run made it, so tags that the run merely fetched from
+  # one of the forges don't count.
+  my %had_tag = map {; $_ => 1 } (
+    ($local->path->is_dir ? $local->tags : ()),
+    (map {; $_->repo->tags } values $self->_forges->%*),
+  );
 
   $Logger->clear_events;
 
@@ -239,7 +244,9 @@ sub _run ($self, $code, %arg) {
 
 # This turns a config data structure into TOML.  It knows exactly as much TOML
 # as a mint-tag config needs: tables of scalars, tables of tables, and arrays
-# of tables.  Booleans are written as references: \1 and \0.
+# of tables.  Booleans are written as references: \1 and \0.  Keys with
+# undefined values are left out, which is how you remove something from one of
+# the stock configs.
 sub _toml_for ($config) {
   return join q{}, map {; _toml_table($_, $config->{$_}, 0) } sort keys %$config;
 }
@@ -250,6 +257,7 @@ sub _toml_table ($name, $value, $is_array_member) {
   }
 
   my @scalar_keys = grep {; ref $value->{$_} ne 'HASH' && ref $value->{$_} ne 'ARRAY' }
+                    grep {; defined $value->{$_} }
                     sort keys %$value;
 
   my @table_keys  = grep {; ref $value->{$_} eq 'HASH' || ref $value->{$_} eq 'ARRAY' }

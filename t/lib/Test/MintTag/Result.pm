@@ -28,8 +28,8 @@ has logs => (
   required => 1,
 );
 
-# an arrayref of the names of the tags that exist in the local repository now,
-# but didn't before the run
+# an arrayref of the names of the tags that this run made: the ones in the
+# local repository now that weren't there, or on any forge, before the run
 has new_tags => (
   is => 'ro',
   required => 1,

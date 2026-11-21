@@ -30,6 +30,7 @@ use App::MintTag::Logger '$Logger' => { init => {
   log_pid   => 0,
 } };
 
+use Test::Deep qw(cmp_deeply);
 use Test::More;
 
 use Test::MintTag::World;
@@ -168,6 +169,9 @@ sub mint_ok ($world, $desc, $spec) {
 #             has to match
 #   tag     - a regex that the name of the new tag has to match, or undef to
 #             say that there must be no new tag
+#   remote_tags - a hashref of (remote name => [ tags ]) giving all the tags
+#             that must now be in that remote's forge, sorted by name; this
+#             is compared with Test::Deep, so re(...) and friends are okay
 #   logs    - an arrayref of regexes, each of which has to match a log line
 #   no_logs - an arrayref of regexes, none of which may match a log line
 #
@@ -214,6 +218,13 @@ sub result_ok ($result, $desc, $expect) {
         like($result->tag // '(no tag)', $want, "made the right tag");
       } else {
         is_deeply($result->new_tags, [], "made no new tag");
+      }
+    }
+
+    if (my $want = delete $expect{remote_tags}) {
+      for my $name (sort keys %$want) {
+        my @tags = sort $result->world->forge($name)->repo->tags;
+        cmp_deeply(\@tags, $want->{$name}, "tags on $name") or diag explain \@tags;
       }
     }
 

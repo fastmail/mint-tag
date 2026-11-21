@@ -262,12 +262,19 @@ sub _notice_pushes_to ($self, $mr) {
 }
 
 # Add a commit to the source branch of a merge request.  This takes the files
-# and message arguments of Test::MintTag::Repo's commit method.
+# and message arguments of Test::MintTag::Repo's commit method.  If you don't
+# give any files, the commit adds a file that nothing else will touch.
 sub update_mr ($self, $number, %arg) {
   my $mr = $self->_mr($number);
   $self->_notice_pushes_to($mr);
 
   my $head = $self->repo->rev("refs/merge-requests/$number/head");
+
+  $arg{files} //= {
+    sprintf("topic/%s-%d.txt", $mr->{branch}, $self->repo->git(qw(rev-list --count), $head))
+      => "more work from $mr->{branch}\n",
+  };
+
   $self->_commit_to_mr($mr, $head, \%arg);
 
   return;
