@@ -28,15 +28,7 @@ my sub tweaked ($config, $tweak) {
 my sub simple ($tweak = undef) { tweaked(simple_config(), $tweak) }
 my sub cyrus  ($tweak = undef) { tweaked(cyrus_config(),  $tweak) }
 
-# A config for release mode, which looks pretty different from the others.
-my sub release ($tweak = undef) {
-  return tweaked({
-    meta   => { committer_email => 'minttag@example.com', release_mode => \1 },
-    local  => { upstream_remote => 'forge', use_upstream_default_branch => \1 },
-    remote => { forge => { repo => 'example/project' } },
-    release_mode => { remote => 'forge', label => 'release-me' },
-  }, $tweak);
-}
+my sub release ($tweak = undef) { tweaked(release_config(), $tweak) }
 
 my sub load ($config, $repo = undef) {
   for my $name (keys $config->{remote}->%*) {

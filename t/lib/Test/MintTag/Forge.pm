@@ -314,6 +314,14 @@ sub mr_data ($self, $number) {
   };
 }
 
+# Catch up with reality for every merge request.  A real forge would notice a
+# push when it happened.  We only notice when somebody asks, so somebody should
+# ask after anything that might have pushed.
+sub catch_up ($self) {
+  $self->mr_data($_) for keys $self->_mrs->%*;
+  return;
+}
+
 # The data, as from mr_data, for every open merge request with the given
 # label, in order of merge request number.
 sub open_mrs_with_label ($self, $label) {

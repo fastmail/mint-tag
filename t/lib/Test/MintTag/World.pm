@@ -225,6 +225,8 @@ sub _run ($self, $code, %arg) {
     };
   }
 
+  $_->catch_up for values $self->_forges->%*;
+
   # mint-tag will have changed into its working directory.  If we leave things
   # that way, the next thing to compute a relative path is in for a surprise.
   chdir $cwd or die "can't chdir back to $cwd: $!";

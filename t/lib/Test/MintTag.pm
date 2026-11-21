@@ -39,6 +39,7 @@ use Exporter 'import';
 our @EXPORT = qw(
   simple_config
   cyrus_config
+  release_config
   mr
 
   new_world
@@ -99,6 +100,20 @@ sub cyrus_config (%arg) {
         ($arg{capstone} // {})->%*,
       },
     ],
+  };
+}
+
+# A config for release mode, for use with mint-release-branch.  There is one
+# remote, "forge".  Merge requests labeled "release-me" are merged into the
+# forge's default branch, and that's pushed back to the forge.  Any arguments
+# are added to the release_mode section, which is to say: to the one build
+# step.
+sub release_config (%step) {
+  return {
+    meta   => { _meta()->%*, release_mode => \1 },
+    local  => { upstream_remote => 'forge', use_upstream_default_branch => \1 },
+    remote => { forge => { repo => 'example/project' } },
+    release_mode => { remote => 'forge', label => 'release-me', %step },
   };
 }
 
@@ -177,6 +192,12 @@ sub mint_ok ($world, $desc, $spec) {
 #   remote_tags - a hashref of (remote name => [ tags ]) giving all the tags
 #             that must now be in that remote's forge, sorted by name; this
 #             is compared with Test::Deep, so re(...) and friends are okay
+#   remote_branches - a hashref of (remote name => { branch => commit }) giving
+#             branches to check in that remote's forge; the commit is a name
+#             as understood by the result's rev_for method, or undef if the
+#             branch must not exist
+#   mr_states - a hashref of (ident => state), giving the state that the forge
+#             must now report for those merge requests
 #   logs    - an arrayref of regexes, each of which has to match a log line
 #   no_logs - an arrayref of regexes, none of which may match a log line
 #
@@ -230,6 +251,30 @@ sub result_ok ($result, $desc, $expect) {
       for my $name (sort keys %$want) {
         my @tags = sort $result->world->forge($name)->repo->tags;
         cmp_deeply(\@tags, $want->{$name}, "tags on $name") or diag explain \@tags;
+      }
+    }
+
+    if (my $want = delete $expect{remote_branches}) {
+      for my $name (sort keys %$want) {
+        my %branch = $result->world->forge($name)->repo->branches;
+
+        for my $branch (sort keys $want->{$name}->%*) {
+          my $commit = $want->{$name}{$branch};
+
+          is(
+            $branch{$branch},
+            (defined $commit ? $result->rev_for($commit) : undef),
+            "branch $branch on $name is " . ($commit // "absent"),
+          );
+        }
+      }
+    }
+
+    if (my $want = delete $expect{mr_states}) {
+      for my $ident (sort keys %$want) {
+        my ($name, $number) = split /!/, $ident;
+        my $state = $result->world->forge($name)->mr_data($number)->{state};
+        is($state, $want->{$ident}, "$ident is $want->{$ident}");
       }
     }
 

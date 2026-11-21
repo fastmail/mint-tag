@@ -59,6 +59,12 @@ sub mrs ($self) {
 
 sub local_repo ($self) { $self->world->local_repo }
 
+# The merge request object, as mint-tag left it, for an ident like "github!12".
+sub mr ($self, $ident) {
+  my ($mr) = grep {; $_->ident eq $ident } $self->mrs;
+  return $mr // Carp::confess("no merge request $ident in this build");
+}
+
 # Given a name for a commit, return its sha.  The names we know:
 #
 #   head      - the commit that mint-tag built, which was checked out when
@@ -68,18 +74,18 @@ sub local_repo ($self) { $self->world->local_repo }
 #   REMOTE!N  - the head of the merge request with that ident, as merged,
 #               meaning that if mint-tag rebased it, it's the rebased head
 #
-# Anything else is taken as a revision in the local repository.
+# Anything else is taken as a revision in the local repository.  That does not
+# include "HEAD" in lowercase, even if your filesystem thinks otherwise.
 sub rev_for ($self, $name) {
-  return $self->head if $name eq 'head';
-  return $self->app->merge_base if $name eq 'base';
+  # Any of our names can have a suffix like ^2 or ~3, as git would allow.
+  my ($base, $suffix) = $name =~ /\A([^~^]+)([~^].*)?\z/;
 
-  if ($name =~ /!/) {
-    my ($mr) = grep {; $_->ident eq $name } $self->mrs;
-    Carp::confess("no merge request $name in this build") unless $mr;
-    return $mr->sha;
-  }
+  my $rev = $base eq 'head' ? $self->head
+          : $base eq 'base' ? $self->app->merge_base
+          : $base =~ /!/    ? $self->mr($base)->sha
+          :                   $base;
 
-  return $self->local_repo->rev($name)
+  return $self->local_repo->rev($rev . ($suffix // ''))
     // Carp::confess("can't resolve $name in the local repository");
 }
 
