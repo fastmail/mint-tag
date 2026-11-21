@@ -7,9 +7,9 @@ use experimental qw(postderef signatures);
 
 use TOML::Parser;
 use Try::Tiny;
-use URI;
 
 use App::MintTag::Logger '$Logger';
+use App::MintTag::Util qw(url_without_credentials);
 
 has config => (
   is => 'ro',
@@ -85,12 +85,7 @@ sub as_toml ($self) {
     push @lines, '[[build_steps]]';
     push @lines, sprintf('name = "%s"', $step->{name});
 
-    my $remote_uri = URI->new($step->{remote});
-    if ($remote_uri->can('userinfo')) {
-      $remote_uri->userinfo(undef);
-    }
-
-    push @lines, sprintf('remote = "%s"', "$remote_uri");
+    push @lines, sprintf('remote = "%s"', url_without_credentials($step->{remote}));
 
     for my $mr ($step->{merge_requests}->@*) {
       my $title = $mr->{title};
@@ -135,7 +130,9 @@ sub from_toml ($class, $config, $toml_str) {
   });
 }
 
-# This is step_data, but in a different shape. Keyed on $cloneurl!$number
+# This is step_data, but in a different shape. Keyed on $cloneurl!$number,
+# where the clone URL never has credentials in it, whether or not the step data
+# did.  (Tags made by older versions of mint-tag do have them.)
 has merge_requests => (
   is => 'ro',
   lazy => 1,
@@ -143,7 +140,7 @@ has merge_requests => (
     my %mrs;
 
     for my $step ($self->step_data->@*) {
-      my $url = $step->{remote};
+      my $url = url_without_credentials($step->{remote});
       for my $mr ($step->{merge_requests}->@*) {
         my $key = sprintf("%s!%d", $url, $mr->{number});
 
@@ -152,7 +149,7 @@ has merge_requests => (
           %$mr,
           key       => $key,
           step_name => $step->{name},
-          remote    => scalar $self->config->remote_for_url($step->{remote}),
+          remote    => scalar $self->config->remote_for_url($url),
         },
       }
     }
@@ -162,7 +159,7 @@ has merge_requests => (
 );
 
 sub _key_for_mr ($class, $mr) {
-  return sprintf("%s!%d", $mr->remote->clone_url, $mr->number);
+  return sprintf("%s!%d", url_without_credentials($mr->remote->clone_url), $mr->number);
 }
 
 # $mr is a blessed merge request object
