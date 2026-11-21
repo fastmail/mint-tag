@@ -42,6 +42,14 @@ has head => (
   is => 'ro',
 );
 
+# Everything mint-tag printed to standard output during the run.  The logs
+# don't go there, in the tests, so this will be empty unless the run was
+# interactive.
+has output => (
+  is => 'ro',
+  default => q{},
+);
+
 # How many seconds mint-tag spent asleep during the run, or would have, if
 # sleeping took any time in the tests.
 has slept => (

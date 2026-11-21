@@ -6,6 +6,7 @@ use Moo;
 
 use Carp ();
 use DateTime;
+use Encode ();
 use Path::Tiny ();
 use Storable ();
 use Try::Tiny;
@@ -178,13 +179,17 @@ sub add_mr ($self, $remote_name, %arg) {
   return $self->forge($remote_name)->add_mr(%arg);
 }
 
-# Run mint-tag, in auto mode, just like bin/mint-tag would.  This returns a
+# Run mint-tag, just like bin/mint-tag would.  This returns a
 # Test::MintTag::Result.  The arguments, all optional:
 #
-#   mrs  - an arrayref of extra merge request numbers, like --mr
-#   repo - the repo name to use in release mode, like --repo
+#   mrs   - an arrayref of extra merge request numbers, like --mr
+#   repo  - the repo name to use in release mode, like --repo
+#   input - an arrayref of lines for the user to type at mint-tag's prompts;
+#           if this is given, even if it's empty, mint-tag runs in interactive
+#           mode, and otherwise it runs in auto mode
 sub mint ($self, %arg) {
-  return $self->_run(sub ($app) { $app->mint_tag(1, $arg{mrs} // []) }, %arg);
+  my $auto = $arg{input} ? 0 : 1;
+  return $self->_run(sub ($app) { $app->mint_tag($auto, $arg{mrs} // []) }, %arg);
 }
 
 # Run mint-tag to tag an arbitrary sha, like bin/mint-tag --sha would.
@@ -210,7 +215,19 @@ sub _run ($self, $code, %arg) {
 
   my ($app, $error);
 
+  # In interactive mode, mint-tag talks to the user on standard output, and
+  # listens on standard input.  We're the user.
+  my $input  = join q{}, map {; "$_\n" } ($arg{input} // [])->@*;
+  my $output = q{};
+
+  open my $stdin,  '<:encoding(UTF-8)', \$input  or die "can't open string: $!";
+  open my $stdout, '>:encoding(UTF-8)', \$output or die "can't open string: $!";
+
+  my $real_stdout = select $stdout;
+
   {
+    local *STDIN = $stdin;
+
     no warnings 'redefine';
     local *App::MintTag::now = sub { $now };
 
@@ -226,6 +243,9 @@ sub _run ($self, $code, %arg) {
       $error = $_;
     };
   }
+
+  select $real_stdout;
+  close $stdout;
 
   $_->catch_up for values $self->_forges->%*;
 
@@ -245,6 +265,7 @@ sub _run ($self, $code, %arg) {
     new_tags => \@new_tags,
     head     => ($local->path->is_dir ? $local->rev('HEAD') : undef),
     slept    => $Test::MintTag::SLEPT - $slept_before,
+    output   => Encode::decode('UTF-8', $output),
   });
 }
 

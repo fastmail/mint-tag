@@ -218,6 +218,7 @@ sub add_mr ($self, %arg) {
     source  => $source,
     state   => 'opened',
     delete_branch => $arg{delete_branch} ? 1 : 0,
+    commits => [],
   };
 
   $self->_commit_to_mr($mr, $base, {
@@ -235,6 +236,9 @@ sub _mr ($self, $number) {
 
 sub _commit_to_mr ($self, $mr, $parent, $commit) {
   my $source = $mr->{source};
+
+  # We remember what went into every commit, so we can rebase it later.
+  push $mr->{commits}->@*, $commit;
 
   # A fork doesn't hear about new commits in the golden repository unless
   # somebody tells it, and it will need to have the parent commit.
@@ -289,6 +293,29 @@ sub update_mr ($self, $number, %arg) {
   };
 
   $self->_commit_to_mr($mr, $head, \%arg);
+
+  return;
+}
+
+# Rebase a merge request, the way its author might, and push the result to its
+# source branch.  We don't really run git rebase.  We make each of the merge
+# request's commits again, with the same files, on top of the new base.  That's
+# the same as a rebase as long as the new base hasn't touched those files.
+#
+# The one optional argument is "onto", which is a revision in the golden
+# repository, defaulting to the default branch.
+sub rebase_mr ($self, $number, %arg) {
+  my $mr = $self->_mr($number);
+
+  $self->_sync_from_upstream;
+
+  my $parent = $self->repo->rev($arg{onto} // $self->default_branch)
+    // Carp::confess("can't find $arg{onto} to rebase onto");
+
+  for my $commit (splice $mr->{commits}->@*) {
+    $self->_commit_to_mr($mr, $parent, $commit);
+    $parent = $self->repo->rev("refs/merge-requests/$number/head");
+  }
 
   return;
 }

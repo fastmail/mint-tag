@@ -224,6 +224,9 @@ sub mint_ok ($world, $desc, $spec) {
 #   mr_states - a hashref of (ident => state), giving the state that the forge
 #             must now report for those merge requests
 #   slept   - how many seconds mint-tag must have slept for
+#   output  - an arrayref of regexes, each of which has to match what mint-tag
+#             printed to standard output
+#   no_output - an arrayref of regexes, none of which may match that
 #   logs    - an arrayref of regexes, each of which has to match a log line
 #   no_logs - an arrayref of regexes, none of which may match a log line
 #
@@ -306,6 +309,14 @@ sub result_ok ($result, $desc, $expect) {
 
     if (defined(my $want = delete $expect{slept})) {
       is($result->slept, $want, "slept for $want seconds");
+    }
+
+    for my $want ((delete $expect{output} // [])->@*) {
+      like($result->output, $want, "printed: $want");
+    }
+
+    for my $want ((delete $expect{no_output} // [])->@*) {
+      unlike($result->output, $want, "did not print: $want");
     }
 
     for my $want ((delete $expect{logs} // [])->@*) {
