@@ -407,4 +407,49 @@ subtest "cleaning up tags that aren't pushed anywhere" => sub {
   is($world->local_repo->tags, 3, "tags are never cleaned up unless they're pushed somewhere");
 };
 
+subtest "cleaning up old dotted tags" => sub {
+  my $world = new_world(
+    config => simple_config(
+      tag_prefix  => 'build',
+      tag_style   => 'dotted',
+      push_tag_to => 'forge',
+      cleanup_tag_days => 7,
+    ),
+    mrs => { forge => [ mr(1, alice => 'one') ] },
+  );
+
+  my $forge = $world->forge('forge');
+
+  # These were made by hand, or by a step with serial tags, so they're not
+  # ours to clean up, no matter how old they get.
+  my @not_ours = qw( build-20261101.0.1 build-20261101.001-g12345678 );
+  $forge->repo->git('tag', $_, 'master') for @not_ours;
+
+  my sub tags_after_build_on ($date, $desc, $want) {
+    local $Test::Builder::Level = $Test::Builder::Level + 1;
+
+    $world->set_date($date);
+    $forge->update_mr(1);
+
+    mint_ok $world, "$date: $desc" => {
+      expect => { remote_tags => { forge => [ sort @$want, @not_ours ] } },
+    };
+
+    is_deeply([ sort $world->local_repo->tags ], [ sort @$want, @not_ours ],
+      "...tags in the local repository");
+  }
+
+  tags_after_build_on('2026-11-01', "the first build", [ 'build-20261101.0.0' ]);
+
+  tags_after_build_on('2026-11-02', "a second build", [
+    'build-20261101.0.0',
+    'build-20261102.0.0',
+  ]);
+
+  tags_after_build_on('2026-11-09', "a build when the oldest tag is old enough", [
+    'build-20261102.0.0',
+    'build-20261109.0.0',
+  ]);
+};
+
 done_testing;

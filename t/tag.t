@@ -228,6 +228,136 @@ subtest "a tag with a prefix that ends with our prefix is not ours" => sub {
   mints_tag($world, "the same build with the prefix 'build'", 'build-20261120.001');
 };
 
+# Run mint-tag and expect it to make one tag, with exactly the given name,
+# pointing at what it built.  This is for tags that aren't named for a sha.
+my sub mints_tag_named ($world, $desc, $name) {
+  local $Test::Builder::Level = $Test::Builder::Level + 1;
+
+  my $result = mint_ok($world, $desc => { expect => { tag => qr/\A\Q$name\E\z/ } });
+  my $tag    = $result->tag // return $result;
+
+  is($world->local_repo->rev($tag), $result->rev_for('head'),
+    "...and the tag points at what we built");
+
+  return $result;
+}
+
+# Run mint-tag and expect it to make no tag, because what it built already has
+# a tag with exactly the given name.
+my sub keeps_tag_named ($world, $desc, $existing) {
+  local $Test::Builder::Level = $Test::Builder::Level + 1;
+
+  return mint_ok($world, $desc => {
+    expect => {
+      tag  => undef,
+      logs => [ qr/already tagged as \Q$existing\E; skipping/ ],
+    },
+  });
+}
+
+my sub dotted_world (%step) {
+  return new_world(
+    config => simple_config(tag_prefix => 'build', tag_style => 'dotted', %step),
+    mrs    => { forge => [ mr(1, alice => 'one') ] },
+  );
+}
+
+subtest "dotted tags" => sub {
+  my $world = dotted_world();
+  my $forge = $world->forge('forge');
+
+  my $first = mints_tag_named($world, "the first build of the day", 'build-20261120.0.0');
+
+  annotation_ok($first, 'build-20261120.0.0', {
+    step  => 'build',
+    steps => [ { name => 'build', remote => 'forge', mrs => [ 'forge!1' ] } ],
+  });
+
+  $forge->update_mr(1);
+  mints_tag_named($world, "a second build, after an MR changed", 'build-20261120.1.0');
+
+  keeps_tag_named($world, "a third build, but nothing changed", 'build-20261120.1.0');
+
+  $world->set_date('2026-11-21');
+  keeps_tag_named($world, "the next day, and still nothing changed", 'build-20261120.1.0');
+
+  $forge->update_mr(1);
+  mints_tag_named($world, "the first new build of the next day", 'build-20261121.0.0');
+};
+
+subtest "dotted tags are numbered after the day's dotted tags that end in .0" => sub {
+  my $world = dotted_world();
+  my $forge = $world->forge('forge');
+
+  my $repo = $forge->repo;
+  $repo->git(qw(tag build-20261120.0.0 master));
+  $repo->git(qw(tag build-20261120.0.1 master));          # a hotfix, by hand
+  $repo->git(qw(tag build-20261120.0.0-rc1 master));
+  $repo->git(qw(tag build-20261120.007-g12345678 master)); # a serial tag
+  $repo->git(qw(tag build-20261119.0.0 master));
+  $repo->git(qw(tag build-20261119.1.0 master));
+  $repo->git(qw(tag rebuild-20261120.1.0 master));
+  $repo->git(qw(tag other-20261120.1.0 master));
+
+  mints_tag_named($world, "a build when the remote has tags", 'build-20261120.1.0');
+
+  $repo->git(qw(tag build-20261120.1.1 master));
+  $forge->update_mr(1);
+
+  mints_tag_named($world, "another build", 'build-20261120.2.0');
+};
+
+subtest "dotted tags continue from the highest number, despite gaps" => sub {
+  my $world = dotted_world();
+  my $forge = $world->forge('forge');
+
+  # Maybe 0.0 and 1.0 were deleted by hand.  If we counted tags to pick the
+  # next number, we'd get to 2.0 and find it taken.
+  $forge->repo->git(qw(tag build-20261120.2.0 master));
+
+  mints_tag_named($world, "a build when an earlier number is free", 'build-20261120.3.0');
+
+  $forge->update_mr(1);
+  mints_tag_named($world, "another build", 'build-20261120.4.0');
+};
+
+subtest "dotted tags, more than ten in a day" => sub {
+  my $world = dotted_world();
+
+  for my $n (0 .. 10) {
+    $world->forge('forge')->update_mr(1);
+    mints_tag_named($world, "build number $n", "build-20261120.$n.0");
+  }
+
+  # The serial number isn't zero-padded, so 10 has to beat 9 as a number.
+  mint_ok $world, "the newest tag is the one with the highest number" => {
+    with   => { input => [ 'no' ] },
+    expect => {
+      tag    => undef,
+      output => [ qr/^The last tag I found for this config was build-20261120\.10\.0\.$/m ],
+    },
+  };
+};
+
+subtest "a step's tag style doesn't recognize the other style's tags" => sub {
+  my $world = dotted_world();
+  my $step  = $world->config->{build_steps}[0];
+
+  mints_tag_named($world, "a dotted build", 'build-20261120.0.0');
+
+  $step->{tag_style} = 'serial';
+  $world->write_config;
+  mints_tag($world, "the same build, with serial tags", 'build-20261120.001');
+
+  $step->{tag_style} = 'dotted';
+  $world->write_config;
+  keeps_tag_named($world, "the same build, with dotted tags again", 'build-20261120.0.0');
+
+  delete $step->{tag_style};
+  $world->write_config;
+  mints_no_tag($world, "the same build, with no tag style given", 'build-20261120.001');
+};
+
 # Tag an arbitrary sha, and check on how it went.  The $rev is a revision in
 # the upstream forge's repository, and $expect is as for result_ok.
 my sub tag_sha_ok ($world, $rev, $desc, $expect) {
@@ -290,6 +420,27 @@ subtest "refusing to tag an arbitrary sha" => sub {
     'master',
     "no step has a tag prefix" => { error => $ambiguous, tag => undef },
   );
+};
+
+subtest "tagging an arbitrary sha with a dotted tag" => sub {
+  my $world = new_world(config => cyrus_config(capstone => { tag_style => 'dotted' }));
+
+  my ($result, $sha) = tag_sha_ok($world, 'master~1', "tag an old upstream commit" => {
+    tag         => qr/\Afm-20261120\.0\.0\z/,
+    remote_tags => { gitlab => [ 'fm-20261120.0.0' ] },
+  });
+
+  is($world->local_repo->rev('fm-20261120.0.0'), $sha, "the tag points at the sha");
+
+  tag_sha_ok($world, 'master~1', "tag the same commit again" => {
+    tag  => undef,
+    logs => [ qr/already tagged as fm-20261120\.0\.0; skipping/ ],
+  });
+
+  tag_sha_ok($world, 'master~2', "tag a different commit" => {
+    tag         => qr/\Afm-20261120\.1\.0\z/,
+    remote_tags => { gitlab => [ 'fm-20261120.0.0', 'fm-20261120.1.0' ] },
+  });
 };
 
 done_testing;
