@@ -181,6 +181,8 @@ sub data_for_mr ($self, $mr) {
 # with the same name as the step we have the MR in.  If there's no such step,
 # maybe because it's been renamed, it's the first step that uses the MR's
 # remote.  If there's no such step either, there's no step in the pair.
+#
+# The pairs are sorted by the MR's remote, and then by its number.
 sub missing_mrs ($self, @steps) {
   my %have = map {; $self->_key_for_mr($_) => 1 }
              map {; $_->merge_requests } @steps;
@@ -193,7 +195,13 @@ sub missing_mrs ($self, @steps) {
 
   my @missing;
 
-  for my $mr (values $self->merge_requests->%*) {
+  # The keys are "$url!$number".  Sort them by URL, and then by number.
+  my @keys = map  {; $_->[0] }
+             sort {; $a->[1] cmp $b->[1] || $a->[2] <=> $b->[2] }
+             map  {; [ $_, /\A(.*)!([0-9]+)\z/ ] }
+             keys $self->merge_requests->%*;
+
+  for my $mr (map {; $self->merge_requests->{$_} } @keys) {
     next if $have{ $mr->{key} };
 
     my $remote_url = $mr->{key} =~ s/![0-9]+\z//r;
