@@ -37,7 +37,12 @@ sub from_file ($class, $file, $repo = undef) {
   return $class->new({
     cfg                => $config,
     is_release_mode    => !! $config->{meta}{release_mode},
-    committer_name     => $config->{meta}{committer_name},
+
+    # If we passed an undefined name, we wouldn't get the attribute's default.
+    (defined $config->{meta}{committer_name}
+      ? (committer_name => $config->{meta}{committer_name})
+      : ()),
+
     committer_email    => $config->{meta}{committer_email},
     local_repo_dir     => $local_conf->{path},
     target_branch_name => $local_conf->{target_branch},
