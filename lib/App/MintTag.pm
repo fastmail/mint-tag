@@ -44,6 +44,10 @@ has merge_base => (
 
 our $ANNOTATION_VERSION = 1;
 
+# The current time, in epoch seconds.  This is a method, rather than a bare call
+# to time, so that the tests can decide what day it is.
+sub now ($self) { time }
+
 sub from_config_file ($class, $config_file, $repo = undef) {
   return $class->new({
     config => App::MintTag::Config->from_file($config_file, $repo),
@@ -321,7 +325,7 @@ sub octopus_merge_mrs ($self, $mrs) {
 sub maybe_tag_commit ($self, $this_step) {
   return unless $this_step->tag_prefix;
 
-  my $ymd = DateTime->now(time_zone => 'UTC')->ymd('');
+  my $ymd = DateTime->from_epoch(epoch => $self->now, time_zone => 'UTC')->ymd('');
   my $sha = run_git('rev-parse', 'HEAD');
 
   if (my $existing = $self->check_existing_tags($this_step->tag_prefix, $sha)) {
@@ -511,7 +515,7 @@ sub _maybe_cleanup_tags ($self, $step) {
                    { ts => $ts, 'tag' => $tag}
                  } split /\n/, $tag_list;
 
-    my $time = time;
+    my $time = $self->now;
 
     my $max_ts = $time - ($step->cleanup_tag_days * 86400);
 
