@@ -191,6 +191,11 @@ sub add_mr ($self, %arg) {
   Carp::confess("already have a merge request numbered $number")
     if $self->_mrs->{$number};
 
+  my $source = $arg{fork} ? $self->_fork_for($author) : $self->repo;
+
+  Carp::confess("already have a branch named $branch in that repository")
+    if $source->rev("refs/heads/$branch");
+
   $self->_sync_from_upstream;
 
   my $base = $self->repo->rev($arg{base} // $self->default_branch)
@@ -202,7 +207,7 @@ sub add_mr ($self, %arg) {
     branch  => $branch,
     title   => $arg{title} // "Do the work from $branch",
     labels  => [ ($arg{labels} // [])->@* ],
-    source  => $arg{fork} ? $self->_fork_for($author) : $self->repo,
+    source  => $source,
     state   => 'opened',
     delete_branch => $arg{delete_branch} ? 1 : 0,
   };
@@ -338,12 +343,13 @@ sub org_members ($self, $org) {
   return @$members;
 }
 
-# The paths of all the files a merge request changes.
+# The paths of all the files a merge request changes.  If it renames a file,
+# both the old name and the new one are included.
 sub files_changed_by_mr ($self, $number) {
   my $data = $self->mr_data($number);
 
   return split /\n/, $self->repo->git(
-    qw(diff --name-only),
+    qw(diff --name-only --no-renames),
     join(q{...}, $self->default_branch, $data->{sha}),
   );
 }
