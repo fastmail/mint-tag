@@ -65,6 +65,7 @@ my sub annotation_ok ($result, $tag, $want) {
           patch_id   => all($_->patch_id, re(qr/\A[0-9a-f]{40}\z/)),
           original_sha        => $_->original_sha,
           original_merge_base => $_->original_merge_base,
+          original_patch_id   => all($_->original_patch_id, re(qr/\A[0-9a-f]{40}\z/)),
         } } @mrs
       ]) : ()),
     };

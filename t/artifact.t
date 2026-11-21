@@ -138,6 +138,7 @@ subtest "an artifact as TOML" => sub {
       patch_id = "0000000000000000000000000000000000010064"
       original_sha = "0000000000000000000000000000000000000065"
       original_merge_base = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      original_patch_id = "0000000000000000000000000000000000010064"
 
       [[build_steps.merge_requests]]
       number = "102"
@@ -147,6 +148,7 @@ subtest "an artifact as TOML" => sub {
       patch_id = "0000000000000000000000000000000000010065"
       original_sha = "0000000000000000000000000000000000000066"
       original_merge_base = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      original_patch_id = "0000000000000000000000000000000000010065"
 
     [[build_steps]]
     name = "nothing"
@@ -164,6 +166,7 @@ subtest "an artifact as TOML" => sub {
       patch_id = "0000000000000000000000000000000000010006"
       original_sha = "0000000000000000000000000000000000000007"
       original_merge_base = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      original_patch_id = "0000000000000000000000000000000000010006"
 
     END
 
@@ -257,6 +260,7 @@ subtest "finding merge requests in an artifact" => sub {
       patch_id   => sprintf('%040x', 0xFFFF + 1),
       original_sha        => sprintf('%040x', 1),
       original_merge_base => 'b' x 40,
+      original_patch_id   => sprintf('%040x', 0xFFFF + 1),
       key        => 'git@gitlab.example.com:example/gitlab.git!1',
       step_name  => 'capstone',
       remote     => shallow($gitlab),
@@ -278,10 +282,18 @@ subtest "finding merge requests in an artifact" => sub {
       merge_base => 'b' x 40,
       original_sha        => sprintf('%040x', 1),
       original_merge_base => 'b' x 40,
+      original_patch_id   => sprintf('%040x', 0xFFFF + 1),
     }),
-    "in an old artifact, the original sha and merge base are the only ones we have",
+    "in an old artifact, use the built revision when it is all we have",
   );
 
+  my $without_patch_id = $artifact->as_toml =~ s/^ *original_patch_id = .*\n//mgr;
+  my $sha = sprintf '%040x', 1;
+  my $rebased_toml = $without_patch_id =~ s/(original_sha = ")\Q$sha\E"/$1 . ('c' x 40) . '"'/ger;
+  my $rebased = App::MintTag::Artifact->from_toml($config, $rebased_toml);
+
+  is($rebased->data_for_mr(mr_obj($gitlab, 1))->{original_patch_id}, undef,
+    "the patch ID of a distinct forge revision is unknown when it was not recorded");
 };
 
 subtest "finding merge requests that have gone missing" => sub {

@@ -290,12 +290,16 @@ sub output_mr ($self, $step, $mr, $idx) {
       # kind of rebasing we're talking about here.
       my $short = substr $old->{original_sha}, 0, 8;
 
-      $delta =
-          $mr->sha eq $old->{original_sha}      ? 'unchanged'
-        : $mr->patch_id eq $old->{patch_id}     ? "was $short, rebased but unchanged"
-        : $mr->merge_base ne $old->{original_merge_base}
-                                                ? "was $short, rebased and altered"
-        :                                         "was $short";
+      my $old_patch_id = $old->{original_patch_id};
+      $delta = "was $short";
+
+      if ($mr->sha eq $old->{original_sha}) {
+        $delta = 'unchanged';
+      } elsif (defined $old_patch_id && $mr->original_patch_id eq $old_patch_id) {
+        $delta .= ', rebased but unchanged';
+      } elsif ($mr->merge_base ne $old->{original_merge_base}) {
+        $delta .= defined $old_patch_id ? ', rebased and altered' : ', rebased';
+      }
 
       if ($old->{step_name} ne $step->name) {
         $delta .= ", was in step named $old->{step_name}";
@@ -359,20 +363,29 @@ sub _run_git_for_mr ($self, $idx, $code) {
   print "$out\n\n";
 }
 
-# If the merge request at this index wasn't in the last build, say so and return
-# true.  There's nothing to compare it to, so callers that were going to show
-# what's changed since the last build should show the whole thing instead.
-sub _note_if_new_since_last_build ($self, $idx) {
+# A comparison needs the original commit from the last build.  Its SHA in
+# the tag annotation does not keep it reachable after a force-push.
+sub _note_if_comparison_commit_unavailable ($self, $idx) {
   my ($old) = $self->data_for_mr_index($idx)->@*;
-  return if $old;
 
-  say "This merge request wasn't in the last build, so here's all of it:\n";
+  unless ($old) {
+    say "This merge request wasn't in the last build, so here's all of it:\n";
+    return 1;
+  }
+
+  my $exists = try {
+    run_git('cat-file', '-e', "$old->{original_sha}^{commit}", { suppress_log_error => 1 });
+    1;
+  };
+  return if $exists;
+
+  say "The previous forge commit isn't available locally, so here's all of this merge request:\n";
   return 1;
 }
 
 sub print_diff_for_mr ($self, $idx) {
   return $self->print_total_diff_for_mr($idx)
-    if $self->_note_if_new_since_last_build($idx);
+    if $self->_note_if_comparison_commit_unavailable($idx);
 
   return $self->_run_git_for_mr($idx, sub ($old, $mr) {
     run_git('diff', '--color', $old->{original_sha}, $mr->sha);
@@ -387,7 +400,7 @@ sub print_total_diff_for_mr ($self, $idx) {
 
 sub print_log_for_mr ($self, $idx) {
   return $self->print_total_log_for_mr($idx)
-    if $self->_note_if_new_since_last_build($idx);
+    if $self->_note_if_comparison_commit_unavailable($idx);
 
   return $self->_run_git_for_mr($idx, sub ($old, $mr) {
     run_git('log', '--oneline', join(q{..}, $old->{original_sha}, $mr->sha));

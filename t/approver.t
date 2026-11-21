@@ -288,6 +288,76 @@ subtest "what's changed since the last build, when steps rebase" => sub {
   };
 };
 
+subtest "comparing forge revisions after a build rebases a merge request" => sub {
+  my $world = new_world(config => cyrus_config());
+  my $github = $world->forge('github');
+  my $gitlab = $world->forge('gitlab');
+
+  # The author will rebase over an unrelated upstream commit.  The build
+  # rebases over a different edit, close enough to change the patch's context.
+  my $shared = join "", map {; "line $_\n" } 1..12;
+  $github->add_upstream_commit(files => { 'shared.txt' => $shared });
+  $github->add_upstream_commit(files => { 'unrelated.txt' => "new upstream file\n" });
+
+  $world->add_mr(github => mr(101, alice => 'upstream-edit',
+    files => { 'shared.txt' => $shared =~ s/^line 2$/upstream edit/mr },
+  )->%*);
+  $world->add_mr(gitlab => mr(7, bob => 'downstream-edit',
+    base  => 'master~1',
+    files => { 'shared.txt' => $shared =~ s/^line 5$/downstream edit/mr },
+  )->%*);
+
+  my $old_sha = $gitlab->mr_data(7)->{sha};
+  my $last_build = mint_ok $world, "the last build" => {
+    expect => { merged => [ 'github!101', 'gitlab!7' ], tag => qr/\A$FM_TAG\z/ },
+  };
+  my $tag = $last_build->tag // return;
+  my $built_mr = $last_build->mr('gitlab!7');
+  isnt($built_mr->patch_id, $built_mr->original_patch_id,
+    "the build's rebase changed the patch ID");
+
+  $gitlab->rebase_mr(7);
+
+  plan_ok $world, "the author's rebase left the forge patch unchanged" => {
+    plan => [
+      'Step 1: github',
+      '1: !101 (unchanged)',
+      'Step 2: capstone',
+      '2: !7 (was SHA, rebased but unchanged)',
+    ],
+  };
+
+  subtest "the old forge commit is missing in a fresh clone" => sub {
+    # The build's tag is still fetchable, but it only keeps the rebased
+    # commit alive.  Use a new clone so the old forge commit isn't cached.
+    $world->config->{local}{path} = $world->root->child('fresh')->stringify;
+    $world->write_config;
+
+    my %contents = (
+      log  => qr/^\w{7,} Do the work from downstream-edit$/m,
+      diff => qr/\+(?:\e\[[0-9;]*m)*downstream edit/,
+    );
+
+    for my $command (qw(log diff)) {
+      mint_ok $world, "$command returns to the prompt" => {
+        with   => { input => [ "$command 2", 'help', 'no' ] },
+        expect => {
+          output => [
+            qr/^The last tag I found for this config was \Q$tag\E\.$/m,
+            qr/The previous forge commit isn't available locally/,
+            $contents{$command},
+            qr/^> yes +go ahead, merge away!$/m,
+          ],
+        },
+      };
+    }
+
+    my $repo = $world->local_repo;
+    is($repo->rev($tag), $last_build->head, "the previous build is available");
+    is($repo->rev($old_sha), undef, "the original forge commit is unavailable");
+  };
+};
+
 subtest "finding the last build" => sub {
   my sub fresh_world (%arg) {
     my $world = new_world(

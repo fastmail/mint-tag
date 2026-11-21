@@ -60,6 +60,7 @@ has step_data => (
           patch_id   => $mr->patch_id,
           original_sha        => $mr->original_sha,
           original_merge_base => $mr->original_merge_base,
+          original_patch_id   => $mr->original_patch_id,
         };
       }
 
@@ -104,9 +105,11 @@ sub as_toml ($self) {
       push @lines, sprintf('  title = "%s"',      $title);
       push @lines, sprintf('  sha = "%s"',        $mr->{sha});
       push @lines, sprintf('  merge_base = "%s"', $mr->{merge_base});
-      push @lines, sprintf('  patch_id = "%s"',   $mr->{patch_id});
+      push @lines, sprintf('  patch_id = "%s"',   $mr->{patch_id} // '');
       push @lines, sprintf('  original_sha = "%s"', $mr->{original_sha});
       push @lines, sprintf('  original_merge_base = "%s"', $mr->{original_merge_base});
+      push @lines, sprintf('  original_patch_id = "%s"', $mr->{original_patch_id})
+        if defined $mr->{original_patch_id};
     }
 
     push @lines, '';
@@ -148,16 +151,21 @@ has merge_requests => (
       for my $mr ($step->{merge_requests}->@*) {
         my $key = sprintf("%s!%d", $url, $mr->{number});
 
-        # maybe: rethink if we want to include merge-base?
-        # If the step rebased the MR, its sha and merge_base are the ones from
-        # after the rebase.  The original_ ones are from before, and are what
-        # to use for comparing with what a forge has now.  Tags made by older
-        # versions of mint-tag don't have them.  Then, the best we can do is
-        # to act like there was no rebase.
+        # Older tags may only record the built revision, so use it as the
+        # default.  If they record a distinct forge revision, its patch ID
+        # must come from that revision too.
+        my $original_sha = $mr->{original_sha} // $mr->{sha};
+        my $original_merge_base = $mr->{original_merge_base} // $mr->{merge_base};
+        my $original_patch_id = $mr->{original_patch_id};
+        if ($original_sha eq $mr->{sha} && $original_merge_base eq $mr->{merge_base}) {
+          $original_patch_id //= $mr->{patch_id};
+        }
+
         $mrs{$key} = {
-          original_sha        => $mr->{sha},
-          original_merge_base => $mr->{merge_base},
           %$mr,
+          original_sha        => $original_sha,
+          original_merge_base => $original_merge_base,
+          original_patch_id   => $original_patch_id,
           key       => $key,
           step_name => $step->{name},
           remote    => scalar $self->config->remote_for_url($url),

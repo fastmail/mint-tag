@@ -65,15 +65,16 @@ has patch_id => (
   writer => 'set_patch_id',
 );
 
-# If we rebase a merge request, its sha and merge base change.  These remember
-# what they were beforehand, which is to say: what they are on the forge.
-has [ qw(_original_sha _original_merge_base) ] => (
+# If we rebase a merge request, these remember its sha, merge base, and
+# patch id as they were on the forge.
+has [ qw(_original_sha _original_merge_base _original_patch_id) ] => (
   is => 'rw',
   init_arg => undef,
 );
 
 sub original_sha        ($self) { $self->_original_sha        // $self->sha        }
 sub original_merge_base ($self) { $self->_original_merge_base // $self->merge_base }
+sub original_patch_id   ($self) { $self->_original_patch_id   // $self->patch_id // '' }
 
 has state => (
   is => 'ro',
@@ -149,10 +150,11 @@ sub rebase ($self, $new_base) {
   );   # might die, and should!
 
   # we succeeded; we need to reset our sha, merge base, and patch id
-  $self->_original_sha($self->sha) unless defined $self->_original_sha;
-
-  $self->_original_merge_base($self->merge_base)
-    unless defined $self->_original_merge_base;
+  unless (defined $self->_original_sha) {
+    $self->_original_sha($self->sha);
+    $self->_original_merge_base($self->merge_base);
+    $self->_original_patch_id($self->original_patch_id);
+  }
 
   my $new_sha = run_git('rev-parse', 'HEAD');
   $self->_set_sha($new_sha);
