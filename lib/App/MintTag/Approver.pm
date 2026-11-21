@@ -284,12 +284,17 @@ sub output_mr ($self, $step, $mr, $idx) {
   if (my $artifact = $self->last_build) {
     if ($artifact->contains_mr($mr)) {
       $old = $artifact->data_for_mr($mr);
-      my $short = substr $old->{sha}, 0, 8;
+
+      # We're comparing the MR as it is on the forge to how it was on the
+      # forge at the last build.  If the last build rebased it, that isn't the
+      # kind of rebasing we're talking about here.
+      my $short = substr $old->{original_sha}, 0, 8;
 
       $delta =
-          $mr->sha eq $old->{sha}               ? 'unchanged'
+          $mr->sha eq $old->{original_sha}      ? 'unchanged'
         : $mr->patch_id eq $old->{patch_id}     ? "was $short, rebased but unchanged"
-        : $mr->merge_base ne $old->{merge_base} ? "was $short, rebased and altered"
+        : $mr->merge_base ne $old->{original_merge_base}
+                                                ? "was $short, rebased and altered"
         :                                         "was $short";
 
       if ($old->{step_name} ne $step->name) {
@@ -321,7 +326,7 @@ sub output_missing_mrs ($self, $missing) {
 
   for my $gone (@$missing) {
     # Try to get some details about them, if we can.
-    my $short_sha = substr $gone->{sha}, 0, 8;
+    my $short_sha = substr $gone->{original_sha}, 0, 8;
     my $mr_desc = "!$gone->{number} (was $short_sha; unable to get more data)";
 
     # NOTE: this is inefficient in the face of 'plan', because it'll
@@ -370,7 +375,7 @@ sub print_diff_for_mr ($self, $idx) {
     if $self->_note_if_new_since_last_build($idx);
 
   return $self->_run_git_for_mr($idx, sub ($old, $mr) {
-    run_git('diff', '--color', $old->{sha}, $mr->sha);
+    run_git('diff', '--color', $old->{original_sha}, $mr->sha);
   });
 }
 
@@ -385,7 +390,7 @@ sub print_log_for_mr ($self, $idx) {
     if $self->_note_if_new_since_last_build($idx);
 
   return $self->_run_git_for_mr($idx, sub ($old, $mr) {
-    run_git('log', '--oneline', join(q{..}, $old->{sha}, $mr->sha));
+    run_git('log', '--oneline', join(q{..}, $old->{original_sha}, $mr->sha));
   });
 }
 

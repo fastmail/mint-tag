@@ -58,6 +58,8 @@ has step_data => (
           sha    => $mr->sha,
           merge_base => $mr->merge_base,
           patch_id   => $mr->patch_id,
+          original_sha        => $mr->original_sha,
+          original_merge_base => $mr->original_merge_base,
         };
       }
 
@@ -103,6 +105,8 @@ sub as_toml ($self) {
       push @lines, sprintf('  sha = "%s"',        $mr->{sha});
       push @lines, sprintf('  merge_base = "%s"', $mr->{merge_base});
       push @lines, sprintf('  patch_id = "%s"',   $mr->{patch_id});
+      push @lines, sprintf('  original_sha = "%s"', $mr->{original_sha});
+      push @lines, sprintf('  original_merge_base = "%s"', $mr->{original_merge_base});
     }
 
     push @lines, '';
@@ -145,7 +149,14 @@ has merge_requests => (
         my $key = sprintf("%s!%d", $url, $mr->{number});
 
         # maybe: rethink if we want to include merge-base?
+        # If the step rebased the MR, its sha and merge_base are the ones from
+        # after the rebase.  The original_ ones are from before, and are what
+        # to use for comparing with what a forge has now.  Tags made by older
+        # versions of mint-tag don't have them.  Then, the best we can do is
+        # to act like there was no rebase.
         $mrs{$key} = {
+          original_sha        => $mr->{sha},
+          original_merge_base => $mr->{merge_base},
           %$mr,
           key       => $key,
           step_name => $step->{name},

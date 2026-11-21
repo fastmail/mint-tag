@@ -63,6 +63,8 @@ my sub annotation_ok ($result, $tag, $want) {
           sha        => $_->sha,
           merge_base => $_->merge_base,
           patch_id   => all($_->patch_id, re(qr/\A[0-9a-f]{40}\z/)),
+          original_sha        => $_->original_sha,
+          original_merge_base => $_->original_merge_base,
         } } @mrs
       ]) : ()),
     };
@@ -162,6 +164,20 @@ subtest "tags from every step that has a prefix" => sub {
     [ $local->rev($upstream_tag), $result->rev_for('gitlab!7') ],
     "first step's tag is on the first step's merge",
   );
+
+  # The second step rebases, so what it merged isn't what the forge has.  The
+  # annotation records both.
+  my $rebased = $result->mr('gitlab!7');
+
+  is($rebased->original_sha, $world->forge('gitlab')->mr_data(7)->{sha},
+    "a rebased merge request's original sha is the forge's");
+
+  isnt($rebased->original_sha, $rebased->sha, "...and isn't the sha that was merged");
+
+  is($rebased->original_merge_base, $result->rev_for('base'),
+    "its original merge base is the one it had with the upstream");
+
+  isnt($rebased->original_merge_base, $rebased->merge_base, "...and isn't what it was rebased onto");
 
   annotation_ok($result, $upstream_tag, {
     step  => 'github',

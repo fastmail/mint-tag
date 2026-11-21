@@ -136,6 +136,8 @@ subtest "an artifact as TOML" => sub {
       sha = "0000000000000000000000000000000000000065"
       merge_base = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       patch_id = "0000000000000000000000000000000000010064"
+      original_sha = "0000000000000000000000000000000000000065"
+      original_merge_base = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
       [[build_steps.merge_requests]]
       number = "102"
@@ -143,6 +145,8 @@ subtest "an artifact as TOML" => sub {
       sha = "0000000000000000000000000000000000000066"
       merge_base = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       patch_id = "0000000000000000000000000000000000010065"
+      original_sha = "0000000000000000000000000000000000000066"
+      original_merge_base = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
     [[build_steps]]
     name = "nothing"
@@ -158,6 +162,8 @@ subtest "an artifact as TOML" => sub {
       sha = "0000000000000000000000000000000000000007"
       merge_base = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       patch_id = "0000000000000000000000000000000000010006"
+      original_sha = "0000000000000000000000000000000000000007"
+      original_merge_base = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
     END
 
@@ -249,6 +255,8 @@ subtest "finding merge requests in an artifact" => sub {
       sha        => sprintf('%040x', 1),
       merge_base => 'b' x 40,
       patch_id   => sprintf('%040x', 0xFFFF + 1),
+      original_sha        => sprintf('%040x', 1),
+      original_merge_base => 'b' x 40,
       key        => 'git@gitlab.example.com:example/gitlab.git!1',
       step_name  => 'capstone',
       remote     => shallow($gitlab),
@@ -257,6 +265,22 @@ subtest "finding merge requests in an artifact" => sub {
   );
 
   is($artifact->data_for_mr(mr_obj($gitlab, 2)), undef, "there is no data for gitlab!2");
+
+  # Tags made before we recorded what a merge request looked like before we
+  # rebased it don't say.  We act as if those weren't rebased.
+  my $old_toml = artifact($config)->as_toml =~ s/^ *original_\w+ = .*\n//mgr;
+  my $old = App::MintTag::Artifact->from_toml($config, $old_toml);
+
+  cmp_deeply(
+    $old->data_for_mr(mr_obj($gitlab, 1)),
+    superhashof({
+      sha        => sprintf('%040x', 1),
+      merge_base => 'b' x 40,
+      original_sha        => sprintf('%040x', 1),
+      original_merge_base => 'b' x 40,
+    }),
+    "in an old artifact, the original sha and merge base are the only ones we have",
+  );
 
 };
 
