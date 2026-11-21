@@ -89,18 +89,34 @@ sub rev_for ($self, $name) {
     // Carp::confess("can't resolve $name in the local repository");
 }
 
-# Check the shape of the history leading to a commit.  A shape is either a
-# name, as understood by rev_for, or an arrayref of shapes, which means "a
-# commit with exactly these parents, in this order."  So, this:
+# Check the shape of the history leading to a commit.  A shape is one of:
 #
-#   [ [ 'base', 'github!1' ], 'gitlab!2' ]
+#   * a name, as understood by rev_for, meaning "this commit"
+#   * an arrayref of shapes, meaning "a commit with exactly these parents, in
+#     this order"
+#   * a hashref of { name => arrayref }, meaning "this commit, and it has
+#     exactly these parents, in this order"
 #
-# ...is a merge of gitlab!2 into a merge of github!1 into the base commit.
+# So, this:
+#
+#   [ [ 'base', 'github!1' ], { 'gitlab!2' => [ 'base' ] } ]
+#
+# ...is a merge of gitlab!2 into a merge of github!1 into the base commit, and
+# the head of gitlab!2 is a direct child of the base commit.
 #
 # This returns a list of complaints, which is empty if the shape fits.
 sub shape_problems ($self, $rev, $shape, $where = 'head') {
   my $repo = $self->local_repo;
   my $sha  = $repo->rev($rev);
+
+  if (ref $shape eq 'HASH') {
+    my ($name, $parents) = %$shape;
+
+    return (
+      $self->shape_problems($sha, $name, $where),
+      $self->shape_problems($sha, $parents, $where),
+    );
+  }
 
   unless (ref $shape) {
     my $want = $self->rev_for($shape);
