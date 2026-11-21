@@ -327,7 +327,21 @@ sub _run_git_for_mr ($self, $idx, $code) {
   print "$out\n\n";
 }
 
+# If the merge request at this index wasn't in the last build, say so and return
+# true.  There's nothing to compare it to, so callers that were going to show
+# what's changed since the last build should show the whole thing instead.
+sub _note_if_new_since_last_build ($self, $idx) {
+  my ($old) = $self->data_for_mr_index($idx)->@*;
+  return if $old;
+
+  say "This merge request wasn't in the last build, so here's all of it:\n";
+  return 1;
+}
+
 sub print_diff_for_mr ($self, $idx) {
+  return $self->print_total_diff_for_mr($idx)
+    if $self->_note_if_new_since_last_build($idx);
+
   return $self->_run_git_for_mr($idx, sub ($old, $mr) {
     run_git('diff', '--color', $old->{sha}, $mr->sha);
   });
@@ -340,6 +354,9 @@ sub print_total_diff_for_mr ($self, $idx) {
 }
 
 sub print_log_for_mr ($self, $idx) {
+  return $self->print_total_log_for_mr($idx)
+    if $self->_note_if_new_since_last_build($idx);
+
   return $self->_run_git_for_mr($idx, sub ($old, $mr) {
     run_git('log', '--oneline', join(q{..}, $old->{sha}, $mr->sha));
   });
