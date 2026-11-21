@@ -279,7 +279,23 @@ sub merge_strategy_semilinear ($self, $step) {
 
 sub merge_strategy_octopus ($self, $step) {
   $self->maybe_rebase($step);
-  $self->octopus_merge_mrs([ $step->merge_requests ]);
+  $self->octopus_merge_mrs(
+    [ $step->merge_requests ],
+    [ $self->_mrs_from_steps_before($step) ],
+  );
+}
+
+# Every merge request from the steps that come before the given one, which is
+# to say: everything that's already been merged when that step begins.
+sub _mrs_from_steps_before ($self, $this_step) {
+  my @mrs;
+
+  for my $step ($self->config->steps) {
+    last if $step eq $this_step;
+    push @mrs, $step->merge_requests;
+  }
+
+  return @mrs;
 }
 
 sub maybe_rebase ($self, $step) {
@@ -307,7 +323,13 @@ sub maybe_rebase ($self, $step) {
   run_git('checkout', $new_base);
 }
 
-sub octopus_merge_mrs ($self, $mrs) {
+# Merge $mrs, an arrayref of merge requests, into HEAD.  If that fails, we try
+# to work out why.  For that, it helps to have $earlier_mrs: an arrayref of
+# the merge requests that earlier steps have already merged, because the
+# trouble might be a conflict with one of those.
+sub octopus_merge_mrs ($self, $mrs, $earlier_mrs = []) {
+  my $start = run_git('rev-parse', 'HEAD');
+
   try {
     $self->_octopus_merge($mrs);
   } catch {
@@ -316,7 +338,7 @@ sub octopus_merge_mrs ($self, $mrs) {
 
     $Logger->log("octopus merge failed with error: $err");
     $Logger->log("will merge less octopodally for diagnostics");
-    $self->_diagnostic_merge($mrs);
+    $self->_diagnostic_merge($mrs, $start, $earlier_mrs);
   };
 }
 
@@ -608,10 +630,20 @@ sub _octopus_merge ($self, $mrs) {
   $Logger->log([ "merged $n $mrs_eng into %s", $self->target_branch_name ]);
 }
 
-sub _diagnostic_merge ($self, $mrs) {
+# $start is the commit that the failed octopus merge started from.  For the
+# first step, that's the upstream base, but for a later step, it has the work
+# of the earlier steps in it.  $earlier_mrs are the merge requests that those
+# earlier steps merged.
+sub _diagnostic_merge ($self, $mrs, $start, $earlier_mrs) {
   local $Logger = $Logger->proxy({ proxy_prefix => 'diagnostic merge: ' });
 
+  # We have to try the merges on top of what the octopus merge was on top of,
+  # or we won't hit conflicts with what earlier steps merged.
   $self->prepare_local_directory;
+  run_git('reset', '--hard', $start);
+  run_git('submodule', 'update');
+
+  my @suspects = (@$earlier_mrs, @$mrs);
 
   for my $mr (@$mrs) {
     $Logger->log([ "merging %s", $mr->oneline_desc ]);
@@ -630,7 +662,7 @@ sub _diagnostic_merge ($self, $mrs) {
         "encountered error while merging %s; will attempt to find conflict",
         $mr->ident
       ]);
-      $self->_find_conflict($mr, $mrs);
+      $self->_find_conflict($mr, \@suspects);
     };
   }
 
@@ -639,7 +671,7 @@ sub _diagnostic_merge ($self, $mrs) {
   $Logger->log('diagnostic merge succeeded somehow, so here are multiply-affected files');
 
   my %affected_by;
-  for my $mr (@$mrs) {
+  for my $mr (@suspects) {
     $Logger->log([ "checking files affected by %s", $mr->ident ]);
 
     try {
