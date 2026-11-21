@@ -94,6 +94,11 @@ sub as_toml ($self) {
 
     for my $mr ($step->{merge_requests}->@*) {
       my $title = $mr->{title};
+      # The obvious way to write a backslash in TOML is as two backslashes,
+      # but TOML::Parser misreads that when what follows looks like another
+      # escape sequence, or is a quote.  It does fine with the Unicode escape
+      # for a backslash, which means just the same thing.
+      $title =~ s/\\/\\u005C/g;
       $title =~ s/"/\\"/g;  # bad escaping is bad
 
       push @lines, '';
