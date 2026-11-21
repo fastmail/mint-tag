@@ -271,6 +271,13 @@ sub merge_strategy_semilinear ($self, $step) {
 
       my $msg = $mr->as_multiline_commit_message($self->target_branch_name);
 
+      # As with octopus merges, we date the merge by the latest author date
+      # of what's being merged, so that we can get repeatable shas.
+      my $stamp = $self->_latest_author_date($new_base, $mr->sha);
+
+      local $ENV{GIT_AUTHOR_DATE}     = $stamp;
+      local $ENV{GIT_COMMITTER_DATE}  = $stamp;
+
       run_git('checkout', $self->target_branch_name);;
       run_git('merge', '--no-ff', '-m' => $msg, $mr->sha);
       run_git('submodule', 'update');
@@ -620,15 +627,7 @@ sub _octopus_merge ($self, $mrs) {
   # Here we're going to grab the latest author date of the heads we include,
   # then use that for both the author and committer dates, so that we can get
   # repeatable shas.
-  my $latest = run_git('show', '--no-patch', '--format=%at', $self->merge_base);
-
-  for my $mr (@$mrs) {
-    my $epoch = run_git('show', '--no-patch', '--format=%at', $mr->sha);
-    $latest = $epoch if $epoch > $latest;
-  }
-
-  # use the latest one we got, but never commit at epoch zero!
-  my $stamp = $latest ? "$latest -0000" : undef;
+  my $stamp = $self->_latest_author_date($self->merge_base, map {; $_->sha } @$mrs);
 
   local $ENV{GIT_AUTHOR_DATE}     = $stamp;
   local $ENV{GIT_COMMITTER_DATE}  = $stamp;
@@ -641,6 +640,20 @@ sub _octopus_merge ($self, $mrs) {
   run_git('commit', '-F' => $path->absolute);
 
   $Logger->log([ "merged $n $mrs_eng into %s", $self->target_branch_name ]);
+}
+
+# Given some commits, return the latest of their author dates, in a form that
+# git will accept as a date for a new commit.  If the latest is the epoch,
+# return undef instead, so that we never commit at epoch zero!
+sub _latest_author_date ($self, @revs) {
+  my $latest = 0;
+
+  for my $rev (@revs) {
+    my $epoch = run_git('show', '--no-patch', '--format=%at', $rev);
+    $latest = $epoch if $epoch > $latest;
+  }
+
+  return $latest ? "$latest -0000" : undef;
 }
 
 # $start is the commit that the failed octopus merge started from.  For the
