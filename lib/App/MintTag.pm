@@ -80,10 +80,8 @@ sub mint_tag ($self, $auto_mode = 0, $mr_numbers = []) {
     for my $step ($self->config->steps) {
       local $Logger = $step->proxy_logger;
 
-      local $ENV{GIT_AUTHOR_NAME}     = $self->config->committer_name;
-      local $ENV{GIT_AUTHOR_EMAIL}    = $self->config->committer_email;
-      local $ENV{GIT_COMMITTER_NAME}  = $self->config->committer_name;
-      local $ENV{GIT_COMMITTER_EMAIL} = $self->config->committer_email;
+      my %identity = $self->_git_identity_env;
+      local @ENV{ keys %identity } = values %identity;
 
       my $strategy = $step->use_semilinear_merge ? 'semilinear' : 'octopus';
       my $merge_method = "merge_strategy_$strategy";
@@ -117,6 +115,18 @@ sub mint_tag ($self, $auto_mode = 0, $mr_numbers = []) {
   };
 }
 
+# The environment variables that tell git to commit (and tag) as the committer
+# named in our config, as a list of pairs.  You'll want to localize these
+# around anything that makes a commit or an annotated tag.
+sub _git_identity_env ($self) {
+  return (
+    GIT_AUTHOR_NAME     => $self->config->committer_name,
+    GIT_AUTHOR_EMAIL    => $self->config->committer_email,
+    GIT_COMMITTER_NAME  => $self->config->committer_name,
+    GIT_COMMITTER_EMAIL => $self->config->committer_email,
+  );
+}
+
 # Tag an arbitrary sha according to the config file. This bails unless there is
 # exactly one step in config with a defined tag_prefix.
 sub tag_arbitrary_sha ($self, $sha) {
@@ -140,6 +150,9 @@ sub tag_arbitrary_sha ($self, $sha) {
 
   run_git('checkout', $sha);
   run_git('submodule', 'update');
+
+  my %identity = $self->_git_identity_env;
+  local @ENV{ keys %identity } = values %identity;
 
   my $tag = $self->maybe_tag_commit($tagging_step);
   $self->maybe_push($tagging_step, $tag);
