@@ -509,7 +509,12 @@ sub _maybe_cleanup_tags ($self, $step) {
     my $tag_spec = "refs/tags/${prefix}*";
     my $tag_list = run_git('for-each-ref', "--format=%(refname:short)\t%(creatordate:unix)", $tag_spec);
 
+    # The glob above will match tags that only begin the way ours do, so we
+    # weed out anything that doesn't look like a tag we'd have made.
+    my $re = re_for_tag($prefix);
+
     my @tags = sort { $a->{ts} <=> $b->{ts} }
+                 grep {; $_->{tag} =~ $re }
                  map {;
                    my ($tag, $ts) = split /\t/;
                    { ts => $ts, 'tag' => $tag}
