@@ -11,6 +11,7 @@ use TOML::Parser;
 use App::MintTag::BuildStep;
 use App::MintTag::Remote::GitHub;
 use App::MintTag::Remote::GitLab;
+use App::MintTag::Util qw(url_without_credentials);
 
 sub from_file ($class, $file, $repo = undef) {
   my $config = TOML::Parser->new->parse_file($file);
@@ -36,7 +37,12 @@ sub from_file ($class, $file, $repo = undef) {
   return $class->new({
     cfg                => $config,
     is_release_mode    => !! $config->{meta}{release_mode},
-    committer_name     => $config->{meta}{committer_name},
+
+    # If we passed an undefined name, we wouldn't get the attribute's default.
+    (defined $config->{meta}{committer_name}
+      ? (committer_name => $config->{meta}{committer_name})
+      : ()),
+
     committer_email    => $config->{meta}{committer_email},
     local_repo_dir     => $local_conf->{path},
     target_branch_name => $local_conf->{target_branch},
@@ -124,8 +130,10 @@ has _remotes_by_url => (
   default => sub ($self) {
     # This is potentially lossy, if you have the same remote with more than
     # one name. I think that's fine, for the purposes we need it for.
-    my $remote_by_https_url = +{ map {; $_->obtain_https_clone_url() => $_ } $self->all_remotes };
-    my $remote_by_ssh_url = +{ map {; $_->obtain_ssh_clone_url() => $_ } $self->all_remotes };
+    #
+    # The keys never have credentials in them.  See remote_for_url.
+    my $remote_by_https_url = +{ map {; url_without_credentials($_->obtain_https_clone_url()) => $_ } $self->all_remotes };
+    my $remote_by_ssh_url = +{ map {; url_without_credentials($_->obtain_ssh_clone_url()) => $_ } $self->all_remotes };
     return { %$remote_by_https_url, %$remote_by_ssh_url } ;
   }
 );
@@ -139,8 +147,11 @@ sub remote_named ($self, $name) {
   die "No configuration for remote named $name!\n"
 }
 
+# Find the remote with the given clone URL.  Any credentials in the URL are
+# ignored, so that a URL will find its remote whether it came from a remote
+# object (with credentials) or a tag annotation (without).
 sub remote_for_url ($self, $clone_url) {
-  my $remote = $self->_remotes_by_url->{$clone_url};
+  my $remote = $self->_remotes_by_url->{ url_without_credentials($clone_url) };
   return $remote if $remote;
 
   # Not dying here, I think.

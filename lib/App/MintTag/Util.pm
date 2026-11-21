@@ -7,10 +7,12 @@ use experimental qw(postderef signatures);
 use IPC::Run3 qw(run3);
 use App::MintTag::Logger '$Logger';
 use Process::Status;
+use URI;
 use Sub::Exporter -setup => [ qw(
   run_git
   re_for_tag
   compute_patch_id
+  url_without_credentials
 ) ];
 
 sub run_git (@cmd) {
@@ -51,7 +53,7 @@ sub run_git (@cmd) {
 }
 
 sub re_for_tag ($prefix) {
-  return qr/\Q$prefix\E-\d{8}\.\d{3}/a;
+  return qr/\A\Q$prefix\E-\d{8}\.\d{3}/a;
 }
 
 sub compute_patch_id ($base, $head) {
@@ -65,6 +67,15 @@ sub compute_patch_id ($base, $head) {
 
   my ($patch_id) = split /\s/, $line;
   return $patch_id;
+}
+
+# Given a URL, return it as a string with any username and password removed.
+# Things that aren't quite URLs, like the user@host:path form used for git over
+# ssh, come back unchanged.
+sub url_without_credentials ($url) {
+  my $uri = URI->new("$url");
+  $uri->userinfo(undef) if $uri->can('userinfo');
+  return "$uri";
 }
 
 1;

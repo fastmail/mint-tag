@@ -65,6 +65,17 @@ has patch_id => (
   writer => 'set_patch_id',
 );
 
+# If we rebase a merge request, these remember its sha, merge base, and
+# patch id as they were on the forge.
+has [ qw(_original_sha _original_merge_base _original_patch_id) ] => (
+  is => 'rw',
+  init_arg => undef,
+);
+
+sub original_sha        ($self) { $self->_original_sha        // $self->sha        }
+sub original_merge_base ($self) { $self->_original_merge_base // $self->merge_base }
+sub original_patch_id   ($self) { $self->_original_patch_id   // $self->patch_id // '' }
+
 has state => (
   is => 'ro',
 );
@@ -126,9 +137,25 @@ sub as_multiline_commit_message ($self, $target_branch) {
 }
 
 sub rebase ($self, $new_base) {
-  run_git('rebase', '--force-rebase', $new_base, $self->sha);   # might die, and should!
+  # Left alone, git would give each rebased commit the current time as its
+  # committer date, and then we'd get different commits every time we rebased
+  # the same thing onto the same base.  Using the author date gets us
+  # repeatable shas.
+  run_git(
+    'rebase',
+    '--force-rebase',
+    '--committer-date-is-author-date',
+    $new_base,
+    $self->sha,
+  );   # might die, and should!
 
   # we succeeded; we need to reset our sha, merge base, and patch id
+  unless (defined $self->_original_sha) {
+    $self->_original_sha($self->sha);
+    $self->_original_merge_base($self->merge_base);
+    $self->_original_patch_id($self->original_patch_id);
+  }
+
   my $new_sha = run_git('rev-parse', 'HEAD');
   $self->_set_sha($new_sha);
   $self->set_merge_base($new_base);

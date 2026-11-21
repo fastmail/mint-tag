@@ -66,20 +66,46 @@ sub confirm_plan ($self) {
   my $step_counter = 1;
   my $mr_counter = 1;
 
+  # Find anything that was in the last build, but has now disappeared.  The
+  # keys here are steps (well, their addresses), and the values are arrayrefs
+  # of the data we have for the merge requests missing from that step.
+  my %missing_from;
+  my @missing_from_nowhere;
+
+  if ($self->has_last_build) {
+    for my $pair ($self->last_build->missing_mrs($self->config->steps)) {
+      my ($step, $mr) = @$pair;
+      push @{ $step ? ($missing_from{$step} //= []) : \@missing_from_nowhere }, $mr;
+    }
+  }
+
   my $total_mr_count = sum0 map {; scalar $_->merge_requests } $self->config->steps;
+  my $anything_missing = %missing_from || @missing_from_nowhere;
+
+  # If there's nothing to merge, there's no plan to show, unless things have
+  # gone missing.  Then, we show the plan so the user can see what.
+  if ($total_mr_count > 0 || $anything_missing) {
+    for my $step ($self->config->steps) {
+      my $header = "Step $step_counter: " . $step->name;
+      $step_counter++;
+      say $header;
+      say '-' x length $header;
+
+      $self->output_step($step, \$mr_counter, $missing_from{$step} // []);
+    }
+
+    # These were in a step that isn't in the config anymore, and neither is
+    # any other step using their remote.
+    if (@missing_from_nowhere) {
+      $self->output_missing_mrs(\@missing_from_nowhere);
+      say "";
+    }
+  }
+
   unless ($total_mr_count > 0) {
     say "Well, that would have been a great branch, but I couldn't find anything";
     say "to merge. I guess I'll give up now; maybe next time!";
     return;
-  }
-
-  for my $step ($self->config->steps) {
-    my $header = "Step $step_counter: " . $step->name;
-    $step_counter++;
-    say $header;
-    say '-' x length $header;
-
-    $self->output_step($step, \$mr_counter);
   }
 
   return $self->enter_interactive_mode;
@@ -214,12 +240,17 @@ sub maybe_set_last_build ($self) {
   $self->_set_last_build($build);
 }
 
-sub output_step ($self, $step, $counter_ref) {
+# $missing is an arrayref of data from the last build, for the merge requests
+# that were in that build but have disappeared from this step.
+sub output_step ($self, $step, $counter_ref, $missing) {
   unless ($step->merge_requests) {
-    printf("Nothing to do! No merge requests labeled %s found on remote %s\n\n",
+    printf("Nothing to do! No merge requests labeled %s found on remote %s\n",
       $step->label,
       $step->remote->name,
     );
+
+    $self->output_missing_mrs($missing);
+    say "";
 
     return;
   }
@@ -237,11 +268,7 @@ sub output_step ($self, $step, $counter_ref) {
     $self->output_mr($step, $mr, $idx);
   }
 
-  # Find anything that was in the last build, but has now disappeared
-  if ($self->has_last_build) {
-    my @missing = $self->last_build->mrs_not_in($step);
-    $self->output_missing_mrs(\@missing);
-  }
+  $self->output_missing_mrs($missing);
 
   if (my $remote = $step->push_tag_to) {
     say "\nWe'd tag that and push it tag to the remote named " . $remote->name . '.';
@@ -257,13 +284,22 @@ sub output_mr ($self, $step, $mr, $idx) {
   if (my $artifact = $self->last_build) {
     if ($artifact->contains_mr($mr)) {
       $old = $artifact->data_for_mr($mr);
-      my $short = substr $old->{sha}, 0, 8;
 
-      $delta =
-          $mr->sha eq $old->{sha}               ? 'unchanged'
-        : $mr->patch_id eq $old->{patch_id}     ? "was $short, rebased but unchanged"
-        : $mr->merge_base ne $old->{merge_base} ? "was $short, rebased and altered"
-        :                                         "was $short";
+      # We're comparing the MR as it is on the forge to how it was on the
+      # forge at the last build.  If the last build rebased it, that isn't the
+      # kind of rebasing we're talking about here.
+      my $short = substr $old->{original_sha}, 0, 8;
+
+      my $old_patch_id = $old->{original_patch_id};
+      $delta = "was $short";
+
+      if ($mr->sha eq $old->{original_sha}) {
+        $delta = 'unchanged';
+      } elsif (defined $old_patch_id && $mr->original_patch_id eq $old_patch_id) {
+        $delta .= ', rebased but unchanged';
+      } elsif ($mr->merge_base ne $old->{original_merge_base}) {
+        $delta .= defined $old_patch_id ? ', rebased and altered' : ', rebased';
+      }
 
       if ($old->{step_name} ne $step->name) {
         $delta .= ", was in step named $old->{step_name}";
@@ -294,7 +330,7 @@ sub output_missing_mrs ($self, $missing) {
 
   for my $gone (@$missing) {
     # Try to get some details about them, if we can.
-    my $short_sha = substr $gone->{sha}, 0, 8;
+    my $short_sha = substr $gone->{original_sha}, 0, 8;
     my $mr_desc = "!$gone->{number} (was $short_sha; unable to get more data)";
 
     # NOTE: this is inefficient in the face of 'plan', because it'll
@@ -327,9 +363,32 @@ sub _run_git_for_mr ($self, $idx, $code) {
   print "$out\n\n";
 }
 
+# A comparison needs the original commit from the last build.  Its SHA in
+# the tag annotation does not keep it reachable after a force-push.
+sub _note_if_comparison_commit_unavailable ($self, $idx) {
+  my ($old) = $self->data_for_mr_index($idx)->@*;
+
+  unless ($old) {
+    say "This merge request wasn't in the last build, so here's all of it:\n";
+    return 1;
+  }
+
+  my $exists = try {
+    run_git('cat-file', '-e', "$old->{original_sha}^{commit}", { suppress_log_error => 1 });
+    1;
+  };
+  return if $exists;
+
+  say "The previous forge commit isn't available locally, so here's all of this merge request:\n";
+  return 1;
+}
+
 sub print_diff_for_mr ($self, $idx) {
+  return $self->print_total_diff_for_mr($idx)
+    if $self->_note_if_comparison_commit_unavailable($idx);
+
   return $self->_run_git_for_mr($idx, sub ($old, $mr) {
-    run_git('diff', '--color', $old->{sha}, $mr->sha);
+    run_git('diff', '--color', $old->{original_sha}, $mr->sha);
   });
 }
 
@@ -340,8 +399,11 @@ sub print_total_diff_for_mr ($self, $idx) {
 }
 
 sub print_log_for_mr ($self, $idx) {
+  return $self->print_total_log_for_mr($idx)
+    if $self->_note_if_comparison_commit_unavailable($idx);
+
   return $self->_run_git_for_mr($idx, sub ($old, $mr) {
-    run_git('log', '--oneline', join(q{..}, $old->{sha}, $mr->sha));
+    run_git('log', '--oneline', join(q{..}, $old->{original_sha}, $mr->sha));
   });
 }
 

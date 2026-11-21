@@ -7,9 +7,9 @@ use experimental qw(postderef signatures);
 
 use TOML::Parser;
 use Try::Tiny;
-use URI;
 
 use App::MintTag::Logger '$Logger';
+use App::MintTag::Util qw(url_without_credentials);
 
 has config => (
   is => 'ro',
@@ -58,6 +58,9 @@ has step_data => (
           sha    => $mr->sha,
           merge_base => $mr->merge_base,
           patch_id   => $mr->patch_id,
+          original_sha        => $mr->original_sha,
+          original_merge_base => $mr->original_merge_base,
+          original_patch_id   => $mr->original_patch_id,
         };
       }
 
@@ -85,15 +88,15 @@ sub as_toml ($self) {
     push @lines, '[[build_steps]]';
     push @lines, sprintf('name = "%s"', $step->{name});
 
-    my $remote_uri = URI->new($step->{remote});
-    if ($remote_uri->can('userinfo')) {
-      $remote_uri->userinfo(undef);
-    }
-
-    push @lines, sprintf('remote = "%s"', "$remote_uri");
+    push @lines, sprintf('remote = "%s"', url_without_credentials($step->{remote}));
 
     for my $mr ($step->{merge_requests}->@*) {
       my $title = $mr->{title};
+      # The obvious way to write a backslash in TOML is as two backslashes,
+      # but TOML::Parser misreads that when what follows looks like another
+      # escape sequence, or is a quote.  It does fine with the Unicode escape
+      # for a backslash, which means just the same thing.
+      $title =~ s/\\/\\u005C/g;
       $title =~ s/"/\\"/g;  # bad escaping is bad
 
       push @lines, '';
@@ -102,7 +105,11 @@ sub as_toml ($self) {
       push @lines, sprintf('  title = "%s"',      $title);
       push @lines, sprintf('  sha = "%s"',        $mr->{sha});
       push @lines, sprintf('  merge_base = "%s"', $mr->{merge_base});
-      push @lines, sprintf('  patch_id = "%s"',   $mr->{patch_id});
+      push @lines, sprintf('  patch_id = "%s"',   $mr->{patch_id} // '');
+      push @lines, sprintf('  original_sha = "%s"', $mr->{original_sha});
+      push @lines, sprintf('  original_merge_base = "%s"', $mr->{original_merge_base});
+      push @lines, sprintf('  original_patch_id = "%s"', $mr->{original_patch_id})
+        if defined $mr->{original_patch_id};
     }
 
     push @lines, '';
@@ -130,7 +137,9 @@ sub from_toml ($class, $config, $toml_str) {
   });
 }
 
-# This is step_data, but in a different shape. Keyed on $cloneurl!$number
+# This is step_data, but in a different shape. Keyed on $cloneurl!$number,
+# where the clone URL never has credentials in it, whether or not the step data
+# did.  (Tags made by older versions of mint-tag do have them.)
 has merge_requests => (
   is => 'ro',
   lazy => 1,
@@ -138,16 +147,28 @@ has merge_requests => (
     my %mrs;
 
     for my $step ($self->step_data->@*) {
-      my $url = $step->{remote};
+      my $url = url_without_credentials($step->{remote});
       for my $mr ($step->{merge_requests}->@*) {
         my $key = sprintf("%s!%d", $url, $mr->{number});
 
-        # maybe: rethink if we want to include merge-base?
+        # Older tags may only record the built revision, so use it as the
+        # default.  If they record a distinct forge revision, its patch ID
+        # must come from that revision too.
+        my $original_sha = $mr->{original_sha} // $mr->{sha};
+        my $original_merge_base = $mr->{original_merge_base} // $mr->{merge_base};
+        my $original_patch_id = $mr->{original_patch_id};
+        if ($original_sha eq $mr->{sha} && $original_merge_base eq $mr->{merge_base}) {
+          $original_patch_id //= $mr->{patch_id};
+        }
+
         $mrs{$key} = {
           %$mr,
+          original_sha        => $original_sha,
+          original_merge_base => $original_merge_base,
+          original_patch_id   => $original_patch_id,
           key       => $key,
           step_name => $step->{name},
-          remote    => scalar $self->config->remote_for_url($step->{remote}),
+          remote    => scalar $self->config->remote_for_url($url),
         },
       }
     }
@@ -157,7 +178,7 @@ has merge_requests => (
 );
 
 sub _key_for_mr ($class, $mr) {
-  return sprintf("%s!%d", $mr->remote->clone_url, $mr->number);
+  return sprintf("%s!%d", url_without_credentials($mr->remote->clone_url), $mr->number);
 }
 
 # $mr is a blessed merge request object
@@ -170,17 +191,45 @@ sub data_for_mr ($self, $mr) {
   return $self->merge_requests->{ $self->_key_for_mr($mr) };
 }
 
-# return a list of MRs that we have, but that aren't in $step
-sub mrs_not_in ($self, $step) {
-  my %have_in_step =  map {; $self->_key_for_mr($_) => 1 } $step->merge_requests;
+# Given all the steps of a build, return the MRs that we have, but that aren't
+# in any of those steps.  This returns a list of pairs, like:
+#
+#   [ $step, $mr_data ]
+#
+# ...where the step is the one the MR has gone missing from.  That's the step
+# with the same name as the step we have the MR in.  If there's no such step,
+# maybe because it's been renamed, it's the first step that uses the MR's
+# remote.  If there's no such step either, there's no step in the pair.
+#
+# The pairs are sorted by the MR's remote, and then by its number.
+sub missing_mrs ($self, @steps) {
+  my %have = map {; $self->_key_for_mr($_) => 1 }
+             map {; $_->merge_requests } @steps;
 
-  my @existing_keys = map  {; $_->{key} }
-                      grep {; $_->{step_name} eq $step->name }
-                      values $self->merge_requests->%*;
+  my (%step_named, %step_using);
+  for my $step (@steps) {
+    $step_named{ $step->name } //= $step;
+    $step_using{ url_without_credentials($step->remote->clone_url) } //= $step;
+  }
 
-  my @missing = map  {; $self->merge_requests->{$_} }
-                grep {; ! $have_in_step{$_} }
-                @existing_keys;
+  my @missing;
+
+  # The keys are "$url!$number".  Sort them by URL, and then by number.
+  my @keys = map  {; $_->[0] }
+             sort {; $a->[1] cmp $b->[1] || $a->[2] <=> $b->[2] }
+             map  {; [ $_, /\A(.*)!([0-9]+)\z/ ] }
+             keys $self->merge_requests->%*;
+
+  for my $mr (map {; $self->merge_requests->{$_} } @keys) {
+    next if $have{ $mr->{key} };
+
+    my $remote_url = $mr->{key} =~ s/![0-9]+\z//r;
+
+    push @missing, [
+      $step_named{ $mr->{step_name} } // $step_using{$remote_url},
+      $mr,
+    ];
+  }
 
   return @missing;
 }

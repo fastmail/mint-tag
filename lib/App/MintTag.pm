@@ -44,6 +44,10 @@ has merge_base => (
 
 our $ANNOTATION_VERSION = 1;
 
+# The current time, in epoch seconds.  This is a method, rather than a bare call
+# to time, so that the tests can decide what day it is.
+sub now ($self) { time }
+
 sub from_config_file ($class, $config_file, $repo = undef) {
   return $class->new({
     config => App::MintTag::Config->from_file($config_file, $repo),
@@ -76,10 +80,8 @@ sub mint_tag ($self, $auto_mode = 0, $mr_numbers = []) {
     for my $step ($self->config->steps) {
       local $Logger = $step->proxy_logger;
 
-      local $ENV{GIT_AUTHOR_NAME}     = $self->config->committer_name;
-      local $ENV{GIT_AUTHOR_EMAIL}    = $self->config->committer_email;
-      local $ENV{GIT_COMMITTER_NAME}  = $self->config->committer_name;
-      local $ENV{GIT_COMMITTER_EMAIL} = $self->config->committer_email;
+      my %identity = $self->_git_identity_env;
+      local @ENV{ keys %identity } = values %identity;
 
       my $strategy = $step->use_semilinear_merge ? 'semilinear' : 'octopus';
       my $merge_method = "merge_strategy_$strategy";
@@ -113,6 +115,18 @@ sub mint_tag ($self, $auto_mode = 0, $mr_numbers = []) {
   };
 }
 
+# The environment variables that tell git to commit (and tag) as the committer
+# named in our config, as a list of pairs.  You'll want to localize these
+# around anything that makes a commit or an annotated tag.
+sub _git_identity_env ($self) {
+  return (
+    GIT_AUTHOR_NAME     => $self->config->committer_name,
+    GIT_AUTHOR_EMAIL    => $self->config->committer_email,
+    GIT_COMMITTER_NAME  => $self->config->committer_name,
+    GIT_COMMITTER_EMAIL => $self->config->committer_email,
+  );
+}
+
 # Tag an arbitrary sha according to the config file. This bails unless there is
 # exactly one step in config with a defined tag_prefix.
 sub tag_arbitrary_sha ($self, $sha) {
@@ -136,6 +150,9 @@ sub tag_arbitrary_sha ($self, $sha) {
 
   run_git('checkout', $sha);
   run_git('submodule', 'update');
+
+  my %identity = $self->_git_identity_env;
+  local @ENV{ keys %identity } = values %identity;
 
   my $tag = $self->maybe_tag_commit($tagging_step);
   $self->maybe_push($tagging_step, $tag);
@@ -254,6 +271,13 @@ sub merge_strategy_semilinear ($self, $step) {
 
       my $msg = $mr->as_multiline_commit_message($self->target_branch_name);
 
+      # As with octopus merges, we date the merge by the latest author date
+      # of what's being merged, so that we can get repeatable shas.
+      my $stamp = $self->_latest_author_date($new_base, $mr->sha);
+
+      local $ENV{GIT_AUTHOR_DATE}     = $stamp;
+      local $ENV{GIT_COMMITTER_DATE}  = $stamp;
+
       run_git('checkout', $self->target_branch_name);;
       run_git('merge', '--no-ff', '-m' => $msg, $mr->sha);
       run_git('submodule', 'update');
@@ -275,7 +299,23 @@ sub merge_strategy_semilinear ($self, $step) {
 
 sub merge_strategy_octopus ($self, $step) {
   $self->maybe_rebase($step);
-  $self->octopus_merge_mrs([ $step->merge_requests ]);
+  $self->octopus_merge_mrs(
+    [ $step->merge_requests ],
+    [ $self->_mrs_from_steps_before($step) ],
+  );
+}
+
+# Every merge request from the steps that come before the given one, which is
+# to say: everything that's already been merged when that step begins.
+sub _mrs_from_steps_before ($self, $this_step) {
+  my @mrs;
+
+  for my $step ($self->config->steps) {
+    last if $step eq $this_step;
+    push @mrs, $step->merge_requests;
+  }
+
+  return @mrs;
 }
 
 sub maybe_rebase ($self, $step) {
@@ -303,7 +343,13 @@ sub maybe_rebase ($self, $step) {
   run_git('checkout', $new_base);
 }
 
-sub octopus_merge_mrs ($self, $mrs) {
+# Merge $mrs, an arrayref of merge requests, into HEAD.  If that fails, we try
+# to work out why.  For that, it helps to have $earlier_mrs: an arrayref of
+# the merge requests that earlier steps have already merged, because the
+# trouble might be a conflict with one of those.
+sub octopus_merge_mrs ($self, $mrs, $earlier_mrs = []) {
+  my $start = run_git('rev-parse', 'HEAD');
+
   try {
     $self->_octopus_merge($mrs);
   } catch {
@@ -312,7 +358,7 @@ sub octopus_merge_mrs ($self, $mrs) {
 
     $Logger->log("octopus merge failed with error: $err");
     $Logger->log("will merge less octopodally for diagnostics");
-    $self->_diagnostic_merge($mrs);
+    $self->_diagnostic_merge($mrs, $start, $earlier_mrs);
   };
 }
 
@@ -321,7 +367,7 @@ sub octopus_merge_mrs ($self, $mrs) {
 sub maybe_tag_commit ($self, $this_step) {
   return unless $this_step->tag_prefix;
 
-  my $ymd = DateTime->now(time_zone => 'UTC')->ymd('');
+  my $ymd = DateTime->from_epoch(epoch => $self->now, time_zone => 'UTC')->ymd('');
   my $sha = run_git('rev-parse', 'HEAD');
 
   if (my $existing = $self->check_existing_tags($this_step->tag_prefix, $sha)) {
@@ -505,13 +551,18 @@ sub _maybe_cleanup_tags ($self, $step) {
     my $tag_spec = "refs/tags/${prefix}*";
     my $tag_list = run_git('for-each-ref', "--format=%(refname:short)\t%(creatordate:unix)", $tag_spec);
 
+    # The glob above will match tags that only begin the way ours do, so we
+    # weed out anything that doesn't look like a tag we'd have made.
+    my $re = re_for_tag($prefix);
+
     my @tags = sort { $a->{ts} <=> $b->{ts} }
+                 grep {; $_->{tag} =~ $re }
                  map {;
                    my ($tag, $ts) = split /\t/;
                    { ts => $ts, 'tag' => $tag}
                  } split /\n/, $tag_list;
 
-    my $time = time;
+    my $time = $self->now;
 
     my $max_ts = $time - ($step->cleanup_tag_days * 86400);
 
@@ -576,15 +627,7 @@ sub _octopus_merge ($self, $mrs) {
   # Here we're going to grab the latest author date of the heads we include,
   # then use that for both the author and committer dates, so that we can get
   # repeatable shas.
-  my $latest = run_git('show', '--no-patch', '--format=%at', $self->merge_base);
-
-  for my $mr (@$mrs) {
-    my $epoch = run_git('show', '--no-patch', '--format=%at', $mr->sha);
-    $latest = $epoch if $epoch > $latest;
-  }
-
-  # use the latest one we got, but never commit at epoch zero!
-  my $stamp = $latest ? "$latest -0000" : undef;
+  my $stamp = $self->_latest_author_date($self->merge_base, map {; $_->sha } @$mrs);
 
   local $ENV{GIT_AUTHOR_DATE}     = $stamp;
   local $ENV{GIT_COMMITTER_DATE}  = $stamp;
@@ -599,10 +642,34 @@ sub _octopus_merge ($self, $mrs) {
   $Logger->log([ "merged $n $mrs_eng into %s", $self->target_branch_name ]);
 }
 
-sub _diagnostic_merge ($self, $mrs) {
+# Given some commits, return the latest of their author dates, in a form that
+# git will accept as a date for a new commit.  If the latest is the epoch,
+# return undef instead, so that we never commit at epoch zero!
+sub _latest_author_date ($self, @revs) {
+  my $latest = 0;
+
+  for my $rev (@revs) {
+    my $epoch = run_git('show', '--no-patch', '--format=%at', $rev);
+    $latest = $epoch if $epoch > $latest;
+  }
+
+  return $latest ? "$latest -0000" : undef;
+}
+
+# $start is the commit that the failed octopus merge started from.  For the
+# first step, that's the upstream base, but for a later step, it has the work
+# of the earlier steps in it.  $earlier_mrs are the merge requests that those
+# earlier steps merged.
+sub _diagnostic_merge ($self, $mrs, $start, $earlier_mrs) {
   local $Logger = $Logger->proxy({ proxy_prefix => 'diagnostic merge: ' });
 
+  # We have to try the merges on top of what the octopus merge was on top of,
+  # or we won't hit conflicts with what earlier steps merged.
   $self->prepare_local_directory;
+  run_git('reset', '--hard', $start);
+  run_git('submodule', 'update');
+
+  my @suspects = (@$earlier_mrs, @$mrs);
 
   for my $mr (@$mrs) {
     $Logger->log([ "merging %s", $mr->oneline_desc ]);
@@ -621,7 +688,7 @@ sub _diagnostic_merge ($self, $mrs) {
         "encountered error while merging %s; will attempt to find conflict",
         $mr->ident
       ]);
-      $self->_find_conflict($mr, $mrs);
+      $self->_find_conflict($mr, \@suspects);
     };
   }
 
@@ -630,7 +697,7 @@ sub _diagnostic_merge ($self, $mrs) {
   $Logger->log('diagnostic merge succeeded somehow, so here are multiply-affected files');
 
   my %affected_by;
-  for my $mr (@$mrs) {
+  for my $mr (@suspects) {
     $Logger->log([ "checking files affected by %s", $mr->ident ]);
 
     try {
