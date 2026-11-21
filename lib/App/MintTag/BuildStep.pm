@@ -101,6 +101,15 @@ sub fetch_mrs ($self, $merge_base, $extra_mrs = []) {
   my @mrs = $self->remote->get_mrs_for_label($self->label, $self->trusted_org);
 
   for my $mr_num (@$extra_mrs) {
+    if (grep {; $_->number == $mr_num } @mrs) {
+      $Logger->log([ "skipping extra MR #%s, from remote %s; already have it",
+        $mr_num,
+        $self->remote->name,
+      ]);
+
+      next;
+    }
+
     $Logger->log([ "fetching extra MR: #%s, from remote %s",
       $mr_num,
       $self->remote->name,
