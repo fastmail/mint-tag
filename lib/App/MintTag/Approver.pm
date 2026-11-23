@@ -11,7 +11,7 @@ use Try::Tiny;
 
 use App::MintTag::Artifact;
 use App::MintTag::Logger '$Logger';
-use App::MintTag::Util qw(run_git re_for_tag);
+use App::MintTag::Util qw(run_git);
 
 has config => (
   is => 'ro',
@@ -193,21 +193,15 @@ sub enter_interactive_mode ($self) {
 
 # return the most recent tag matching this config's *last* defined step.
 sub last_tag_for_config ($self) {
-  my ($prefix) = map  {; $_->tag_prefix         }
-                 grep {; defined $_->tag_prefix }
-                 reverse $self->config->steps;
+  my ($step) = grep {; defined $_->tag_prefix }
+               reverse $self->config->steps;
 
-  return unless $prefix;
+  return unless $step;
 
+  my $prefix = $step->tag_prefix;
   my $output = run_git(qw(tag -l), "$prefix-*");
 
-  my $re = re_for_tag($prefix);
-
-  my @have = sort {; $b cmp $a }
-             grep {; $_ =~ $re }
-             split /\n/, $output;
-
-  return $have[0];
+  return $step->newest_tag(split /\n/, $output);
 }
 
 sub maybe_set_last_build ($self) {

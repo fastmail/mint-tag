@@ -424,6 +424,17 @@ subtest "finding the last build" => sub {
     };
   }
 
+  # With dotted tags, a tag made by hand for a hotfix isn't taken for a build.
+  {
+    my $world = fresh_world(capstone => { tag_style => 'dotted' });
+    $world->forge('gitlab')->repo->git(qw(tag fm-20261120.0.1 master));
+
+    plan_ok $world, "a newer hotfix tag doesn't hide a dotted last build" => {
+      plan   => \@known,
+      expect => { output => [ qr/^The last tag I found for this config was fm-20261120\.0\.0\.$/m ] },
+    };
+  }
+
   {
     my $world = fresh_world();
     local $App::MintTag::ANNOTATION_VERSION = 2;

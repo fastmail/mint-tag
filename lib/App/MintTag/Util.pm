@@ -10,7 +10,6 @@ use Process::Status;
 use URI;
 use Sub::Exporter -setup => [ qw(
   run_git
-  re_for_tag
   compute_patch_id
   url_without_credentials
 ) ];
@@ -50,10 +49,6 @@ sub run_git (@cmd) {
   }
 
   return $out;
-}
-
-sub re_for_tag ($prefix) {
-  return qr/\A\Q$prefix\E-\d{8}\.\d{3}/a;
 }
 
 sub compute_patch_id ($base, $head) {

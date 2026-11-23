@@ -133,6 +133,7 @@ subtest "configs that load" => sub {
         force_push_rebased_branches  => $FALSE,
         allow_source_branch_deletion => $FALSE,
         cleanup_tag_days => 0,
+        tag_style => 'serial',
       },
     ],
     remotes => {
@@ -306,6 +307,10 @@ subtest "configs that don't load" => sub {
   config_dies "a step that pushes tags but doesn't make them",
     simple(sub ($c) { $c->{build_steps}[0]{push_tag_to} = 'forge' }),
     qr/build doesn't make sense: you defined a tag push target but no tag prefix/;
+
+  config_dies "a step with an unknown tag_style",
+    simple(sub ($c) { $c->{build_steps}[0]->@{qw(tag_prefix tag_style)} = qw(tag semver) }),
+    qr/tag_style must be 'serial' or 'dotted'/;
 
   config_dies "a push_spec with no remote",
     simple(sub ($c) { $c->{build_steps}[0]{push_spec} = { branch => 'beta' } }),

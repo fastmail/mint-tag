@@ -119,6 +119,14 @@ at Fastmail, but with better diagnostics (I hope).
 If you've defined a `tag_prefix` for a step, we'll tag the resulting commit.
 That's straightforward, if a little silly.
 
+A step's `tag_style` picks the tag's format.  The default, `serial`, gives the
+`PREFIX-yyyymmdd.nnn-gSHA` tags described above.  With `tag_style = "dotted"`,
+you get tags like `PREFIX-yyyymmdd.n.0` instead, where `n` is 0 for the
+day's first tag, and after that is one more than the highest `n` among the
+`.0` tags already made that day.  The last number is always 0, leaving room
+for tags made by hand, like `PREFIX-yyyymmdd.n.1` for a hotfix, which mint-tag
+won't count or mistake for its own.
+
 ## Installing
 
 With [Dist::Zilla](https://metacpan.org/pod/Dist::Zilla):
